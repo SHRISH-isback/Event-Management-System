@@ -3,6 +3,7 @@ const cors = require("cors");
 const authRoutes = require("./routes/auth.routes");
 const { requireAuth } = require("./middleware/auth");
 const adminRoutes = require("./routes/admin.routes");
+const eventRoutes = require("./routes/event.routes");
 
 const app = express();
 
@@ -11,6 +12,7 @@ app.use(express.json());
 
 app.use("/api/auth", authRoutes);
 app.use("/api/admin", adminRoutes);
+app.use("/api/events", eventRoutes);
 
 //TEMP TEST ROUTE
 app.get("/api/protected", requireAuth, (req, res) => {
