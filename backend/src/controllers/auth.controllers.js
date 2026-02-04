@@ -1,16 +1,21 @@
 const jwt = require("jsonwebtoken");
 const User = require("../models/User");
-const ParticipantProfile = require("../models/ParticipantProfile");
+const ParticipantProfile = require("../models/Participant");
 const { PARTICIPANT } = require("../utils/roles");
 
 const register = async (req, res) => {
   try {
     const { email, password, participantType } = req.body;
-
+    if (!email || !password || !participantType) {
+      return res.status(400).json({ message: "Missing required fields" });
+    }
     if (participantType === "IIIT" && !email.endsWith("@iiit.ac.in")) {
       return res.status(400).json({ message: "Invalid IIIT email" });
     }
-
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
+      return res.status(400).json({ message: "User already exists" });
+    }
     const user = await User.create({
       email,
       password,
@@ -31,7 +36,9 @@ const register = async (req, res) => {
 const login = async (req, res) => {
   try {
     const { email, password } = req.body;
-
+    if (!email || !password) {
+      return res.status(400).json({ message: "Missing credentials" });
+    }
     const user = await User.findOne({ email });
     if (!user || !(await user.comparePassword(password))) {
       return res.status(401).json({ message: "Invalid credentials" });
