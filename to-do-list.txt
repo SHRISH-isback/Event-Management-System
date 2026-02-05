@@ -2,14 +2,14 @@
 1. Complete Participant Profile Collection (first name, last name, contact, college)
 2. User Onboarding Preferences Page (interests, followed clubs, skip option)
 3. Event Details Page with Registration (validation, deadline checking, seat tracking)
+4. Profile Page for Participants (edit profile, password change)
+9. Organizer Profile Page
 
 🚀 NEXT HIGH PRIORITY:
-4. Profile Page for Participants (edit profile, password change)
 5. Search and Filters on Browse Events
 6. Custom Form Builder for Events
 7. Merchandise Event Fields and Workflow
 8. Event Editing with Proper Restrictions
-9. Organizer Profile Page
 
 📝 NOTES:
 - Registration now returns JWT token immediately after signup

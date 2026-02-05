@@ -10,8 +10,22 @@ const organizerRoutes = require("./routes/organizer.routes");
 
 const app = express();
 
-app.use(cors());
+const corsOptions = {
+  origin: [
+    "http://localhost:3000",
+    "http://localhost:5173",
+    "https://event-management-system-iiit.vercel.app"
+  ],
+  credentials: true,
+  optionsSuccessStatus: 200
+};
+
+app.use(cors(corsOptions));
 app.use(express.json());
+
+app.get("/", (req, res) => {
+  res.json({ message: "Event Management System API is running" });
+});
 
 app.use("/api/auth", authRoutes);
 app.use("/api/admin", adminRoutes);
