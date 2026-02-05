@@ -3,6 +3,7 @@ import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import Events from "./pages/Events";
 import ProtectedRoute from "./components/ProtectedRoute";
+import Navbar from "./components/Navbar";
 
 function App() {
   return (
@@ -14,7 +15,10 @@ function App() {
           path="/dashboard"
           element={
             <ProtectedRoute>
-              <Dashboard />
+              <>
+                <Navbar />
+                <Dashboard />
+              </>
             </ProtectedRoute>
           }
         />
@@ -23,7 +27,10 @@ function App() {
           path="/events"
           element={
             <ProtectedRoute>
-              <Events />
+              <>
+                <Navbar />
+                <Events />
+              </>
             </ProtectedRoute>
           }
         />

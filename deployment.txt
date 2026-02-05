@@ -1,0 +1,2 @@
+Frontend URL: https://event-management-system-iiit.vercel.app
+Backend API URL: https://event-management-system-uruy.onrender.com

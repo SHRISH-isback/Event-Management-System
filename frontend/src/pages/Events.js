@@ -1,46 +1,23 @@
 import { useEffect, useState } from "react";
 import api from "../api/axios";
+import "../App.css";
 
 export default function Events() {
   const [events, setEvents] = useState([]);
-  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const fetchEvents = async () => {
-      try {
-        const res = await api.get("/events");
-        setEvents(res.data);
-      } catch (err) {
-        console.error("Failed to fetch events");
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchEvents();
+    api.get("/events").then((res) => setEvents(res.data));
   }, []);
 
-  if (loading) return <p>Loading events...</p>;
-
   return (
-    <div>
+    <div className="container">
       <h2>Browse Events</h2>
 
-      {events.length === 0 && <p>No events available</p>}
-
       {events.map((event) => (
-        <div
-          key={event._id}
-          style={{ border: "1px solid #ccc", margin: "10px", padding: "10px" }}
-        >
+        <div className="card" key={event._id}>
           <h3>{event.name}</h3>
           <p>{event.description}</p>
-          <p>
-            <b>Type:</b> {event.type}
-          </p>
-          <p>
-            <b>Organizer:</b> {event.organizer?.name}
-          </p>
+          <button className="btn">View Details</button>
         </div>
       ))}
     </div>

@@ -5,10 +5,10 @@
 }
 
 body {
-  font-family: Arial, Helvetica, sans-serif;
-  background-color: #f5f5f5;
+  font-family: "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  background-color: #f2f4f8;
   color: #222;
-  line-height: 1.5;
+  line-height: 1.6;
 }
 
 a {
@@ -16,13 +16,11 @@ a {
   color: inherit;
 }
 
-input,
-button {
-  font-family: inherit;
-  padding: 8px;
-  margin: 5px 0;
-}
-
 button {
   cursor: pointer;
+  border: none;
+}
+
+input {
+  outline: none;
 }
