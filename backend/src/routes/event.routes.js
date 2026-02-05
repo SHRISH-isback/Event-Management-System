@@ -4,8 +4,9 @@ const router = express.Router();
 const {
   createEvent,
   publishEvent,
-  listEvents,
-  getMyEvents
+  getMyEvents,
+  getAllEvents,
+  getEventById,
 } = require("../controllers/event.controller");
 
 const { requireAuth, requireRole } = require("../middleware/auth");
@@ -25,7 +26,7 @@ router.get(
   requireRole("ORGANIZER"),
   getMyEvents
 );
-
-router.get("/", listEvents);
+router.get("/", getAllEvents);
+router.get("/:id", getEventById);
 
 module.exports = router;

@@ -3,19 +3,15 @@ const Organizer = require("../models/Organizer");
 
 const createEvent = async (req, res) => {
   try {
-    const organizer = await Organizer.findOne({ user: req.user.id });
-    if (!organizer) {
-      return res.status(403).json({ message: "Not an organizer" });
-    }
-
     const event = await Event.create({
       ...req.body,
-      organizer: organizer._id,
+      organizer: req.user.id,
+      status: "DRAFT",
     });
 
-    return res.status(201).json(event);
+    res.status(201).json(event);
   } catch (err) {
-    return res.status(500).json({ message: err.message });
+    res.status(500).json({ message: err.message });
   }
 };
 
@@ -45,13 +41,32 @@ const getMyEvents = async (req, res) => {
     res.status(500).json({ message: err.message });
   }
 };
- 
-const listEvents = async (req, res) => {
-  const events = await Event.find({ status: "PUBLISHED" }).populate(
-    "organizer",
-    "name category"
-  );
-  res.json(events);
+
+const getAllEvents = async (req, res) => {
+  try {
+    const events = await Event.find({
+      status: "PUBLISHED",
+    }).populate("organizer", "name");
+
+    res.json(events);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
 };
 
-module.exports = { createEvent, publishEvent, listEvents , getMyEvents};
+const getEventById = async (req, res) => {
+  try {
+    const event = await Event.findById(req.params.id)
+      .populate("organizer", "name category contactEmail");
+    
+    if (!event) {
+      return res.status(404).json({ message: "Event not found" });
+    }
+
+    res.json(event);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+module.exports = { createEvent, publishEvent, getMyEvents, getAllEvents, getEventById };

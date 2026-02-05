@@ -1,1 +1,18 @@
-Participation event registration backend not done.
+✅ COMPLETED:
+1. Complete Participant Profile Collection (first name, last name, contact, college)
+2. User Onboarding Preferences Page (interests, followed clubs, skip option)
+3. Event Details Page with Registration (validation, deadline checking, seat tracking)
+
+🚀 NEXT HIGH PRIORITY:
+4. Profile Page for Participants (edit profile, password change)
+5. Search and Filters on Browse Events
+6. Custom Form Builder for Events
+7. Merchandise Event Fields and Workflow
+8. Event Editing with Proper Restrictions
+9. Organizer Profile Page
+
+📝 NOTES:
+- Registration now returns JWT token immediately after signup
+- Backend APIs created: /api/participants/preferences, /api/organizers
+- Event details page shows: deadline status, seat availability, registration count
+- Proper validation: deadline passed, event full, already registered

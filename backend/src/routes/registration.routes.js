@@ -1,9 +1,14 @@
 const express = require("express");
 const router = express.Router();
 
-const { registerForEvent } = require("../controllers/registration.controller");
+const { 
+  registerForEvent,
+  getMyRegistrations,
+  getEventRegistrations,
+  checkRegistration,
+  getRegistrationCount
+} = require("../controllers/registration.controller");
 const { requireAuth, requireRole } = require("../middleware/auth");
-const { getRegistrations } = require("../controllers/registration.controller");
 
 router.post(
   "/:eventId",
@@ -16,7 +21,26 @@ router.get(
   "/my",
   requireAuth,
   requireRole("PARTICIPANT"),
-  getRegistrations
+  getMyRegistrations
+);
+
+router.get(
+  "/event/:eventId",
+  requireAuth,
+  requireRole("ORGANIZER"),
+  getEventRegistrations
+);
+
+router.get(
+  "/check/:eventId",
+  requireAuth,
+  requireRole("PARTICIPANT"),
+  checkRegistration
+);
+
+router.get(
+  "/count/:eventId",
+  getRegistrationCount
 );
 
 module.exports = router;

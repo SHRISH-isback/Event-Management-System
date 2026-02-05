@@ -54,7 +54,7 @@ const registerForEvent = async (req, res) => {
     res.status(500).json({ message: err.message });
   }
 };
-const getRegistrations = async (req, res) => {
+const getMyRegistrations = async (req, res) => {
   try {
     const registrations = await Registration.find({
       participant: req.user.id,
@@ -68,4 +68,59 @@ const getRegistrations = async (req, res) => {
     res.status(500).json({ message: err.message });
   }
 };
-module.exports = { registerForEvent ,getRegistrations};
+const getEventRegistrations = async (req, res) => {
+  try {
+    const event = await Event.findOne({
+      _id: req.params.eventId,
+      organizer: req.user.id,
+    });
+
+    if (!event) {
+      return res.status(403).json({ message: "Not authorized" });
+    }
+
+    const registrations = await Registration.find({
+      event: req.params.eventId,
+      status: "REGISTERED",
+    }).populate("participant", "email");
+
+    res.json(registrations);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+const checkRegistration = async (req, res) => {
+  try {
+    const registration = await Registration.findOne({
+      participant: req.user.id,
+      event: req.params.eventId,
+      status: "REGISTERED",
+    });
+
+    res.json({ isRegistered: !!registration });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+const getRegistrationCount = async (req, res) => {
+  try {
+    const count = await Registration.countDocuments({
+      event: req.params.eventId,
+      status: "REGISTERED",
+    });
+
+    res.json({ count });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+module.exports = { 
+  registerForEvent, 
+  getMyRegistrations, 
+  getEventRegistrations,
+  checkRegistration,
+  getRegistrationCount
+};

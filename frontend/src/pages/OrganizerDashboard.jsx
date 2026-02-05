@@ -10,6 +10,19 @@ export default function OrganizerDashboard() {
   useEffect(() => {
     api.get("/events/my").then((res) => setEvents(res.data));
   }, []);
+  const publishEvent = async (eventId) => {
+    try {
+      await api.patch(`/events/${eventId}/publish`);
+      const res = await api.get("/events/my");
+      setEvents(res.data);
+    } catch (err) {
+      alert("Failed to publish event");
+    }
+  };
+
+  const viewRegistrations = (eventId) => {
+    navigate(`/organizer/event/${eventId}/registrations`);
+  };
 
   return (
     <div className="container">
@@ -33,8 +46,7 @@ export default function OrganizerDashboard() {
             <b>Status:</b>{" "}
             <span
               style={{
-                color:
-                  event.status === "PUBLISHED" ? "green" : "orange",
+                color: event.status === "PUBLISHED" ? "green" : "orange",
               }}
             >
               {event.status}
@@ -44,8 +56,28 @@ export default function OrganizerDashboard() {
           <p>
             <b>Type:</b> {event.type}
           </p>
+          {}
+          {event.status === "DRAFT" && (
+            <button
+              className="btn"
+              style={{ marginRight: "10px" }}
+              onClick={() => publishEvent(event._id)}
+            >
+              Publish
+            </button>
+          )}
+
+          {event.status === "PUBLISHED" && (
+            <button
+              className="btn"
+              onClick={() => viewRegistrations(event._id)}
+            >
+              View Registrations
+            </button>
+          )}
         </div>
       ))}
+
     </div>
   );
 }

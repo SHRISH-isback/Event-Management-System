@@ -14,12 +14,14 @@ export default function Navbar() {
     <nav className="navbar">
       <div className="nav-left">
         <span className="logo">EMS</span>
-        <Link to="/dashboard" className="nav-link">Dashboard</Link>
         <Link to="/events" className="nav-link">Events</Link>
 
         {role === "ADMIN" && (
-          <Link to="/dashboard" className="nav-link">Admin Panel</Link>
+          <Link to="/admin" className="nav-link">
+            Admin
+          </Link>
         )}
+
         {role === "PARTICIPANT" && (
           <Link to="/my-events" className="nav-link">
             My Events
@@ -34,6 +36,16 @@ export default function Navbar() {
       </div>
 
       <div className="nav-right">
+        {role === "PARTICIPANT" && (
+          <Link to="/profile" className="nav-link">
+            Profile
+          </Link>
+        )}
+        {role === "ORGANIZER" && (
+          <Link to="/organizer/profile" className="nav-link">
+            Profile
+          </Link>
+        )}
         <button className="btn btn-logout" onClick={logout}>
           Logout
         </button>

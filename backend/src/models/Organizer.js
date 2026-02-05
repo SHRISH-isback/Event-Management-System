@@ -15,6 +15,7 @@ const organizerSchema = new mongoose.Schema(
     description: String,
     contactEmail: String,
     contactNumber: String,
+    discordWebhook: String,
   },
   { timestamps: true }
 );
