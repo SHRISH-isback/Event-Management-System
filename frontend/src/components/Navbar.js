@@ -24,6 +24,11 @@ export default function Navbar() {
         {role === "ADMIN" && (
           <Link to="/dashboard" className="nav-link">Admin Panel</Link>
         )}
+        {role === "PARTICIPANT" && (
+          <Link to="/my-events" className="nav-link">
+            My Events
+          </Link>
+        )}
       </div>
 
       <div className="nav-right">

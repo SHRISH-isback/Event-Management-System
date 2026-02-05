@@ -1,9 +1,12 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import api from "../api/axios";
 import "../App.css";
 
 export default function Events() {
   const [events, setEvents] = useState([]);
+  const navigate = useNavigate();
+
 
   useEffect(() => {
     api.get("/events").then((res) => setEvents(res.data));
@@ -14,11 +17,12 @@ export default function Events() {
       <h2>Browse Events</h2>
 
       {events.map((event) => (
-        <div className="card" key={event._id}>
-          <h3>{event.name}</h3>
-          <p>{event.description}</p>
-          <button className="btn">View Details</button>
-        </div>
+        <button
+          className="btn"
+          onClick={() => navigate(`/events/${event._id}`)}
+        >
+          View Details
+        </button>
       ))}
     </div>
   );
