@@ -6,6 +6,8 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import Navbar from "./components/Navbar";
 import MyEvents from "./pages/MyEvents";
 import EventDetails from "./pages/EventDetails";
+import OrganizerDashboard from "./pages/OrganizerDashboard";
+import CreateEvent from "./pages/CreateEvent";
 
 function App() {
   return (
@@ -20,6 +22,28 @@ function App() {
               <>
                 <Navbar />
                 <Dashboard />
+              </>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/organizer"
+          element={
+            <ProtectedRoute>
+              <>
+                <Navbar />
+                <OrganizerDashboard />
+              </>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/organizer/create"
+          element={
+            <ProtectedRoute>
+              <>
+                <Navbar />
+                <CreateEvent />
               </>
             </ProtectedRoute>
           }

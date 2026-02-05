@@ -1,9 +1,11 @@
 import { useEffect, useState } from "react";
 import api from "../api/axios";
 import "../App.css";
+import { useNavigate } from "react-router-dom";
 
 export default function OrganizerDashboard() {
   const [events, setEvents] = useState([]);
+  const navigate = useNavigate();
 
   useEffect(() => {
     api.get("/events/my").then((res) => setEvents(res.data));
@@ -11,6 +13,13 @@ export default function OrganizerDashboard() {
 
   return (
     <div className="container">
+      <button
+        className="btn"
+        style={{ marginBottom: "15px" }}
+        onClick={() => navigate("/organizer/create")}
+      >
+        Create New Event
+      </button>
       <h2>My Events</h2>
 
       {events.length === 0 && <p>No events created yet.</p>}

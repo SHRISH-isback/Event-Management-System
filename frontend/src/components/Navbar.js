@@ -17,10 +17,6 @@ export default function Navbar() {
         <Link to="/dashboard" className="nav-link">Dashboard</Link>
         <Link to="/events" className="nav-link">Events</Link>
 
-        {role === "ORGANIZER" && (
-          <Link to="/dashboard" className="nav-link">My Events</Link>
-        )}
-
         {role === "ADMIN" && (
           <Link to="/dashboard" className="nav-link">Admin Panel</Link>
         )}
@@ -29,6 +25,12 @@ export default function Navbar() {
             My Events
           </Link>
         )}
+        {role === "ORGANIZER" && (
+          <Link to="/organizer" className="nav-link">
+            My Events
+          </Link>
+        )}
+
       </div>
 
       <div className="nav-right">
