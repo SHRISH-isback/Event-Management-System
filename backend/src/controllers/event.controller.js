@@ -35,7 +35,17 @@ const publishEvent = async (req, res) => {
   }
 };
 
+const getMyEvents = async (req, res) => {
+  try {
+    const events = await Event.find({ organizer: req.user.id })
+      .sort({ createdAt: -1 });
 
+    res.json(events);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+ 
 const listEvents = async (req, res) => {
   const events = await Event.find({ status: "PUBLISHED" }).populate(
     "organizer",
@@ -44,4 +54,4 @@ const listEvents = async (req, res) => {
   res.json(events);
 };
 
-module.exports = { createEvent, publishEvent, listEvents };
+module.exports = { createEvent, publishEvent, listEvents , getMyEvents};

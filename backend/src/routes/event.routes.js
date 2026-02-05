@@ -5,6 +5,7 @@ const {
   createEvent,
   publishEvent,
   listEvents,
+  getMyEvents
 } = require("../controllers/event.controller");
 
 const { requireAuth, requireRole } = require("../middleware/auth");
@@ -17,6 +18,12 @@ router.patch(
   requireAuth,
   requireRole(ORGANIZER),
   publishEvent
+);
+router.get(
+  "/my",
+  requireAuth,
+  requireRole("ORGANIZER"),
+  getMyEvents
 );
 
 router.get("/", listEvents);
