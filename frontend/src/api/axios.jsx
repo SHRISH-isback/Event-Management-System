@@ -1,10 +1,14 @@
 import axios from "axios";
 
-const baseURL = process.env.REACT_APP_API_URL || "http://localhost:5000/api";
+// Use environment variable or fallback to production backend
+const baseURL = process.env.REACT_APP_API_URL || 
+                process.env.NEXT_PUBLIC_API_URL || 
+                "https://event-management-system-uruy.onrender.com/api";
 
 const api = axios.create({
   baseURL,
-  timeout: 10000,
+  timeout: 30000, // Increased timeout for Render cold starts
+  withCredentials: false, // Set to true if using cookies
 });
 
 api.interceptors.request.use((req) => {
