@@ -7,6 +7,7 @@ const {
   getMyEvents,
   getAllEvents,
   getEventById,
+  getTrendingEvents,
 } = require("../controllers/event.controller");
 
 const { requireAuth, requireRole } = require("../middleware/auth");
@@ -26,6 +27,7 @@ router.get(
   requireRole("ORGANIZER"),
   getMyEvents
 );
+router.get("/trending", getTrendingEvents);
 router.get("/", getAllEvents);
 router.get("/:id", getEventById);
 

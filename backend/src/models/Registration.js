@@ -25,6 +25,16 @@ const registrationSchema = new mongoose.Schema(
       enum: ["REGISTERED", "CANCELLED"],
       default: "REGISTERED",
     },
+
+    merchDetails: {
+      size: String,
+      color: String,
+      quantity: {
+        type: Number,
+        default: 1,
+        min: 1,
+      },
+    },
   },
   { timestamps: true }
 );

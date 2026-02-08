@@ -10,10 +10,17 @@ export default function EventDetails() {
     const [event, setEvent] = useState(null);
     const [registrationCount, setRegistrationCount] = useState(0);
     const [isRegistered, setIsRegistered] = useState(false);
+    const [showQRModal, setShowQRModal] = useState(false);
+    const [qrCodeData, setQrCodeData] = useState(null);
+    const [ticketId, setTicketId] = useState(null);
     const [message, setMessage] = useState("");
     const [error, setError] = useState("");
     const [loading, setLoading] = useState(true);
     const role = localStorage.getItem("role");
+    const [selectedSize, setSelectedSize] = useState("");
+    const [selectedColor, setSelectedColor] = useState("");
+    const [quantity, setQuantity] = useState(1);
+    const [showPurchaseModal, setShowPurchaseModal] = useState(false);
 
     useEffect(() => {
         const fetchEvent = async () => {
@@ -21,7 +28,6 @@ export default function EventDetails() {
                 const res = await api.get(`/events/${eventId}`);
                 setEvent(res.data);
                 
-                // Check if already registered
                 if (role === "PARTICIPANT") {
                     try {
                         const regRes = await api.get(`/registrations/check/${eventId}`);
@@ -49,16 +55,57 @@ export default function EventDetails() {
         setError("");
         setMessage("");
 
+        if (event.type === "MERCH" && !showPurchaseModal) {
+            setShowPurchaseModal(true);
+            return;
+        }
+
         try {
-            const res = await api.post(`/registrations/${eventId}`);
-            setMessage(`Registered successfully! Your Ticket ID: ${res.data.ticketId}`);
+            const requestData = {};
+
+            if (event.type === "MERCH") {
+                if (!selectedSize || !selectedColor) {
+                    setError("Please select both size and color");
+                    return;
+                }
+                requestData.size = selectedSize;
+                requestData.color = selectedColor;
+                requestData.quantity = quantity;
+            }
+
+            const res = await api.post(`/registrations/${eventId}`, requestData);
+            
+            const successMsg = event.type === "MERCH" 
+                ? `Purchase successful! Your Order ID: ${res.data.ticketId}\n${quantity} × ${selectedSize} ${selectedColor}`
+                : `Registered successfully! Your Ticket ID: ${res.data.ticketId}`;
+            
+            setMessage(successMsg);
             setIsRegistered(true);
             setRegistrationCount(prev => prev + 1);
+            setShowPurchaseModal(false);
+            
+            if (res.data.qrCode) {
+                setQrCodeData(res.data.qrCode);
+                setTicketId(res.data.ticketId);
+                setShowQRModal(true);
+            }
         } catch (err) {
             setError(
                 err.response?.data?.message || "Registration failed"
             );
         }
+    };
+
+    const getAvailableStock = () => {
+        if (!event || event.type !== "MERCH" || !selectedSize || !selectedColor) {
+            return 0;
+        }
+
+        const variant = event.merchVariants?.find(
+            v => v.size === selectedSize && v.color === selectedColor
+        );
+
+        return variant ? variant.stock - variant.sold : 0;
     };
 
     const isDeadlinePassed = () => {
@@ -224,6 +271,373 @@ export default function EventDetails() {
                     </div>
                 )}
             </div>
+
+            {/* Merchandise Stock Information */}
+            {event.type === "MERCH" && event.merchVariants && (
+                <div style={{
+                    padding: "20px",
+                    backgroundColor: "#f0fdf4",
+                    borderRadius: "8px",
+                    border: "1px solid #86efac",
+                    marginBottom: "20px"
+                }}>
+                    <h3 style={{ marginTop: 0, marginBottom: "15px", color: "#10b981" }}>
+                        Available Merchandise
+                    </h3>
+                    
+                    <p style={{ marginBottom: "10px" }}>
+                        <b>Purchase Limit:</b> {event.purchaseLimit} item(s) per customer
+                    </p>
+
+                    <div style={{ overflowX: "auto" }}>
+                        <table style={{ 
+                            width: "100%", 
+                            borderCollapse: "collapse",
+                            backgroundColor: "white",
+                            borderRadius: "6px",
+                            overflow: "hidden"
+                        }}>
+                            <thead>
+                                <tr style={{ backgroundColor: "#d1fae5" }}>
+                                    <th style={{ padding: "10px", textAlign: "left" }}>Size</th>
+                                    <th style={{ padding: "10px", textAlign: "left" }}>Color</th>
+                                    <th style={{ padding: "10px", textAlign: "left" }}>Available Stock</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {event.merchVariants.map((variant, idx) => {
+                                    const availableStock = variant.stock - variant.sold;
+                                    return (
+                                        <tr key={idx} style={{ borderBottom: "1px solid #e5e7eb" }}>
+                                            <td style={{ padding: "10px" }}>{variant.size}</td>
+                                            <td style={{ padding: "10px" }}>{variant.color}</td>
+                                            <td style={{ 
+                                                padding: "10px",
+                                                color: availableStock === 0 ? "#dc2626" : "#10b981",
+                                                fontWeight: "bold"
+                                            }}>
+                                                {availableStock === 0 ? "Out of Stock" : availableStock}
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            )}
+
+            {/* Purchase Modal */}
+            {showPurchaseModal && event.type === "MERCH" && (
+                <div style={{
+                    position: "fixed",
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    backgroundColor: "rgba(0, 0, 0, 0.5)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    zIndex: 1000,
+                    padding: "20px"
+                }}>
+                    <div style={{
+                        backgroundColor: "white",
+                        padding: "30px",
+                        borderRadius: "12px",
+                        maxWidth: "500px",
+                        width: "100%",
+                        maxHeight: "90vh",
+                        overflowY: "auto"
+                    }}>
+                        <h3 style={{ marginTop: 0 }}>Complete Your Purchase</h3>
+
+                        {error && <div style={{ 
+                            padding: "12px", 
+                            backgroundColor: "#fee2e2", 
+                            border: "1px solid #dc2626",
+                            borderRadius: "6px",
+                            marginBottom: "15px",
+                            color: "#991b1b"
+                        }}>
+                            {error}
+                        </div>}
+
+                        <div style={{ marginBottom: "20px" }}>
+                            <label style={{ display: "block", marginBottom: "8px", fontWeight: "bold" }}>
+                                Select Size:
+                            </label>
+                            <select
+                                className="input"
+                                value={selectedSize}
+                                onChange={(e) => {
+                                    setSelectedSize(e.target.value);
+                                    setError("");
+                                }}
+                                style={{ width: "100%" }}
+                            >
+                                <option value="">-- Choose Size --</option>
+                                {event.availableSizes?.map(size => (
+                                    <option key={size} value={size}>{size}</option>
+                                ))}
+                            </select>
+                        </div>
+
+                        <div style={{ marginBottom: "20px" }}>
+                            <label style={{ display: "block", marginBottom: "8px", fontWeight: "bold" }}>
+                                Select Color:
+                            </label>
+                            <select
+                                className="input"
+                                value={selectedColor}
+                                onChange={(e) => {
+                                    setSelectedColor(e.target.value);
+                                    setError("");
+                                }}
+                                style={{ width: "100%" }}
+                            >
+                                <option value="">-- Choose Color --</option>
+                                {event.availableColors?.map(color => (
+                                    <option key={color} value={color}>{color}</option>
+                                ))}
+                            </select>
+                        </div>
+
+                        {selectedSize && selectedColor && (
+                            <div style={{
+                                padding: "12px",
+                                backgroundColor: "#f0fdf4",
+                                borderRadius: "6px",
+                                marginBottom: "20px"
+                            }}>
+                                <p style={{ margin: "5px 0" }}>
+                                    <b>Available Stock:</b> {getAvailableStock()} items
+                                </p>
+                            </div>
+                        )}
+
+                        <div style={{ marginBottom: "20px" }}>
+                            <label style={{ display: "block", marginBottom: "8px", fontWeight: "bold" }}>
+                                Quantity:
+                            </label>
+                            <input
+                                className="input"
+                                type="number"
+                                min="1"
+                                max={Math.min(event.purchaseLimit, getAvailableStock())}
+                                value={quantity}
+                                onChange={(e) => setQuantity(parseInt(e.target.value) || 1)}
+                                style={{ width: "100%" }}
+                            />
+                            <small style={{ color: "#666" }}>
+                                Maximum: {Math.min(event.purchaseLimit, getAvailableStock())} items
+                            </small>
+                        </div>
+
+                        <div style={{ display: "flex", gap: "10px", marginTop: "20px" }}>
+                            <button
+                                className="btn"
+                                onClick={handleRegister}
+                                disabled={!selectedSize || !selectedColor || getAvailableStock() === 0}
+                                style={{
+                                    flex: 1,
+                                    opacity: (!selectedSize || !selectedColor || getAvailableStock() === 0) ? 0.5 : 1,
+                                    cursor: (!selectedSize || !selectedColor || getAvailableStock() === 0) ? "not-allowed" : "pointer"
+                                }}
+                            >
+                                Confirm Purchase
+                            </button>
+                            <button
+                                className="btn"
+                                onClick={() => {
+                                    setShowPurchaseModal(false);
+                                    setError("");
+                                }}
+                                style={{ flex: 1, backgroundColor: "#6b7280" }}
+                            >
+                                Cancel
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {}
+            {showQRModal && qrCodeData && (
+                <div style={{
+                    position: "fixed",
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    backgroundColor: "rgba(0, 0, 0, 0.7)",
+                    display: "flex",
+                    justifyContent: "center",
+                    alignItems: "center",
+                    zIndex: 1000,
+                    padding: "20px"
+                }}>
+                    <div style={{
+                        backgroundColor: "white",
+                        padding: "40px",
+                        borderRadius: "12px",
+                        maxWidth: "500px",
+                        width: "100%",
+                        maxHeight: "90vh",
+                        overflowY: "auto",
+                        textAlign: "center",
+                        boxShadow: "0 10px 25px rgba(0, 0, 0, 0.2)"
+                    }}>
+                        <div style={{
+                            fontSize: "32px",
+                            marginBottom: "10px"
+                        }}>
+                            
+                        </div>
+                        
+                        <h2 style={{
+                            fontSize: "24px",
+                            fontWeight: "bold",
+                            marginBottom: "10px",
+                            color: "#1f2937"
+                        }}>
+                            {event?.type === "MERCH" ? "Purchase Confirmed!" : "Registration Successful!"}
+                        </h2>
+                        
+                        <p style={{
+                            color: "#6b7280",
+                            marginBottom: "20px",
+                            fontSize: "14px"
+                        }}>
+                            A confirmation email with your {event?.type === "MERCH" ? "order" : "ticket"} details has been sent
+                        </p>
+
+                        <div style={{
+                            backgroundColor: "#f3f4f6",
+                            padding: "20px",
+                            borderRadius: "8px",
+                            marginBottom: "20px"
+                        }}>
+                            <p style={{
+                                color: "#6b7280",
+                                fontSize: "12px",
+                                marginBottom: "5px",
+                                textTransform: "uppercase",
+                                letterSpacing: "1px"
+                            }}>
+                                {event?.type === "MERCH" ? "Order ID" : "Ticket ID"}
+                            </p>
+                            <p style={{
+                                fontSize: "20px",
+                                fontWeight: "bold",
+                                color: "#4f46e5",
+                                letterSpacing: "2px"
+                            }}>
+                                {ticketId}
+                            </p>
+                        </div>
+
+                        <div style={{
+                            backgroundColor: "white",
+                            padding: "20px",
+                            borderRadius: "8px",
+                            border: "2px solid #e5e7eb",
+                            marginBottom: "20px"
+                        }}>
+                            <img 
+                                src={qrCodeData} 
+                                alt="QR Code" 
+                                style={{
+                                    width: "250px",
+                                    height: "250px",
+                                    margin: "0 auto",
+                                    display: "block"
+                                }}
+                            />
+                            <p style={{
+                                color: "#6b7280",
+                                fontSize: "14px",
+                                marginTop: "15px"
+                            }}>
+                                {event?.type === "MERCH" 
+                                    ? "Show this QR code to collect your merchandise"
+                                    : "Show this QR code at the event entrance"}
+                            </p>
+                        </div>
+
+                        <div style={{
+                            backgroundColor: "#fffbeb",
+                            border: "1px solid #fbbf24",
+                            padding: "15px",
+                            borderRadius: "8px",
+                            marginBottom: "20px",
+                            textAlign: "left"
+                        }}>
+                            <p style={{
+                                fontSize: "12px",
+                                color: "#92400e",
+                                margin: 0
+                            }}>
+                                <strong> Important:</strong>
+                            </p>
+                            <ul style={{
+                                fontSize: "12px",
+                                color: "#92400e",
+                                margin: "10px 0 0 0",
+                                paddingLeft: "20px"
+                            }}>
+                                <li>Save this QR code or take a screenshot</li>
+                                <li>Check your email for the full ticket details</li>
+                                <li>Present this on your phone or printed copy</li>
+                            </ul>
+                        </div>
+
+                        <div style={{
+                            display: "flex",
+                            gap: "10px"
+                        }}>
+                            <button
+                                onClick={() => {
+                                    const link = document.createElement('a');
+                                    link.download = `ticket-${ticketId}.png`;
+                                    link.href = qrCodeData;
+                                    link.click();
+                                }}
+                                style={{
+                                    flex: 1,
+                                    padding: "12px",
+                                    backgroundColor: "#4f46e5",
+                                    color: "white",
+                                    border: "none",
+                                    borderRadius: "6px",
+                                    cursor: "pointer",
+                                    fontSize: "14px",
+                                    fontWeight: "600"
+                                }}
+                            >
+                                Download QR Code
+                            </button>
+                            <button
+                                onClick={() => setShowQRModal(false)}
+                                style={{
+                                    flex: 1,
+                                    padding: "12px",
+                                    backgroundColor: "#f3f4f6",
+                                    color: "#1f2937",
+                                    border: "none",
+                                    borderRadius: "6px",
+                                    cursor: "pointer",
+                                    fontSize: "14px",
+                                    fontWeight: "600"
+                                }}
+                            >
+                                Close
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Messages */}
             {message && <div style={{ 

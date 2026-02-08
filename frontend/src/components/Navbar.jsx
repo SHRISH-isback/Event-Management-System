@@ -23,9 +23,14 @@ export default function Navbar() {
         )}
 
         {role === "PARTICIPANT" && (
-          <Link to="/my-events" className="nav-link">
-            My Events
-          </Link>
+          <>
+            <Link to="/my-events" className="nav-link">
+              My Events
+            </Link>
+            <Link to="/clubs" className="nav-link">
+              Clubs
+            </Link>
+          </>
         )}
         {role === "ORGANIZER" && (
           <Link to="/organizer" className="nav-link">

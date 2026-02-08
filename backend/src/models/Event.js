@@ -1,5 +1,19 @@
 const mongoose = require("mongoose");
 
+const variantSchema = new mongoose.Schema({
+  size: String,
+  color: String,
+  stock: {
+    type: Number,
+    required: true,
+    default: 0,
+  },
+  sold: {
+    type: Number,
+    default: 0,
+  },
+});
+
 const eventSchema = new mongoose.Schema(
   {
     name: {
@@ -39,6 +53,21 @@ const eventSchema = new mongoose.Schema(
       enum: ["DRAFT", "PUBLISHED", "CLOSED"],
       default: "DRAFT",
     },
+
+    merchVariants: [variantSchema],
+    availableSizes: [String],
+    availableColors: [String],
+    purchaseLimit: {
+      type: Number,
+      default: 1,
+      min: 1,
+    },
+
+    viewCount: {
+      type: Number,
+      default: 0,
+    },
+    lastViewed: Date,
   },
   { timestamps: true }
 );

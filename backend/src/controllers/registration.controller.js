@@ -1,11 +1,16 @@
 const Event = require("../models/Event");
 const Registration = require("../models/Registration");
+const User = require("../models/User");
+const Participant = require("../models/Participant");
 const crypto = require("crypto");
+const { sendRegistrationEmail } = require("../utils/emailService");
+const { generateQRCode, createTicketData } = require("../utils/qrCodeService");
 
 const registerForEvent = async (req, res) => {
   try {
     const eventId = req.params.eventId;
     const participantId = req.user.id;
+    const { size, color, quantity } = req.body;
 
     const event = await Event.findById(eventId);
     if (!event || event.status !== "PUBLISHED") {
@@ -27,6 +32,40 @@ const registerForEvent = async (req, res) => {
       return res.status(400).json({ message: "Already registered" });
     }
 
+    if (event.type === "MERCH") {
+      if (!size || !color || !quantity) {
+        return res.status(400).json({ 
+          message: "Size, color, and quantity are required for merchandise events" 
+        });
+      }
+
+      if (quantity > event.purchaseLimit) {
+        return res.status(400).json({ 
+          message: `Maximum purchase limit is ${event.purchaseLimit} items` 
+        });
+      }
+
+      const variant = event.merchVariants.find(
+        v => v.size === size && v.color === color
+      );
+
+      if (!variant) {
+        return res.status(400).json({ 
+          message: "Selected size and color combination is not available" 
+        });
+      }
+
+      const availableStock = variant.stock - variant.sold;
+      if (availableStock < quantity) {
+        return res.status(400).json({ 
+          message: `Only ${availableStock} items available in stock` 
+        });
+      }
+
+      variant.sold += quantity;
+      await event.save();
+    }
+
     if (event.registrationLimit) {
       const count = await Registration.countDocuments({
         event: eventId,
@@ -40,15 +79,65 @@ const registerForEvent = async (req, res) => {
 
     const ticketId = crypto.randomBytes(6).toString("hex");
 
-    const registration = await Registration.create({
+    const registrationData = {
       participant: participantId,
       event: eventId,
       ticketId,
-    });
+    };
+
+    if (event.type === "MERCH") {
+      registrationData.merchDetails = { size, color, quantity };
+    }
+
+    const registration = await Registration.create(registrationData);
+
+    let qrCodeDataUrl = null;
+    try {
+      const ticketData = createTicketData(registration, event);
+      qrCodeDataUrl = await generateQRCode(ticketData);
+    } catch (qrError) {
+      console.error("Error generating QR code:", qrError);
+    }
+
+    try {
+      const user = await User.findById(participantId);
+      const participant = await Participant.findOne({ user: participantId });
+
+      const emailData = {
+        participantName: participant?.name || user.email.split("@")[0],
+        eventName: event.name,
+        eventDate: event.startDate 
+          ? new Date(event.startDate).toLocaleDateString("en-US", {
+              weekday: "long",
+              year: "numeric",
+              month: "long",
+              day: "numeric",
+            })
+          : "TBA",
+        eventTime: event.startDate
+          ? new Date(event.startDate).toLocaleTimeString("en-US", {
+              hour: "2-digit",
+              minute: "2-digit",
+            })
+          : "TBA",
+        eventLocation: event.location || "TBA",
+        ticketId: registration.ticketId,
+        qrCodeDataUrl,
+        eventType: event.type,
+        merchDetails: registration.merchDetails,
+      };
+
+      await sendRegistrationEmail(user.email, emailData);
+      console.log(`Confirmation email sent to ${user.email}`);
+    } catch (emailError) {
+      console.error("Error sending confirmation email:", emailError);
+    }
 
     res.status(201).json({
-      message: "Registered successfully",
+      message: event.type === "MERCH" ? "Purchase successful" : "Registered successfully",
       ticketId: registration.ticketId,
+      merchDetails: registration.merchDetails,
+      qrCode: qrCodeDataUrl,
     });
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -117,10 +206,107 @@ const getRegistrationCount = async (req, res) => {
   }
 };
 
+const verifyTicket = async (req, res) => {
+  try {
+    const { ticketId } = req.params;
+
+    const registration = await Registration.findOne({ ticketId })
+      .populate("event", "name startDate endDate location type")
+      .populate("participant", "email");
+
+    if (!registration) {
+      return res.status(404).json({ message: "Ticket not found" });
+    }
+
+    const response = {
+      valid: registration.status === "REGISTERED",
+      ticketId: registration.ticketId,
+      status: registration.status,
+      event: {
+        name: registration.event.name,
+        startDate: registration.event.startDate,
+        endDate: registration.event.endDate,
+        location: registration.event.location,
+        type: registration.event.type,
+      },
+      participantEmail: registration.participant.email,
+      registrationDate: registration.createdAt,
+    };
+
+    if (registration.merchDetails) {
+      response.merchDetails = registration.merchDetails;
+    }
+
+    res.json(response);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+const resendConfirmationEmail = async (req, res) => {
+  try {
+    const { registrationId } = req.params;
+
+    const registration = await Registration.findById(registrationId)
+      .populate("event")
+      .populate("participant");
+
+    if (!registration) {
+      return res.status(404).json({ message: "Registration not found" });
+    }
+
+    if (registration.participant._id.toString() !== req.user.id) {
+      return res.status(403).json({ message: "Not authorized" });
+    }
+
+    const user = await User.findById(req.user.id);
+
+    const ticketData = createTicketData(registration, registration.event);
+    const qrCodeDataUrl = await generateQRCode(ticketData);
+
+    const participant = await Participant.findOne({ user: req.user.id });
+
+    const emailData = {
+      participantName: participant?.name || user.email.split("@")[0],
+      eventName: registration.event.name,
+      eventDate: registration.event.startDate
+        ? new Date(registration.event.startDate).toLocaleDateString("en-US", {
+            weekday: "long",
+            year: "numeric",
+            month: "long",
+            day: "numeric",
+          })
+        : "TBA",
+      eventTime: registration.event.startDate
+        ? new Date(registration.event.startDate).toLocaleTimeString("en-US", {
+            hour: "2-digit",
+            minute: "2-digit",
+          })
+        : "TBA",
+      eventLocation: registration.event.location || "TBA",
+      ticketId: registration.ticketId,
+      qrCodeDataUrl,
+      eventType: registration.event.type,
+      merchDetails: registration.merchDetails,
+    };
+
+    await sendRegistrationEmail(user.email, emailData);
+
+    res.json({ 
+      message: "Confirmation email sent successfully",
+      qrCode: qrCodeDataUrl 
+    });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
 module.exports = { 
   registerForEvent, 
   getMyRegistrations, 
   getEventRegistrations,
   checkRegistration,
-  getRegistrationCount
+  getRegistrationCount,
+  verifyTicket,
+  resendConfirmationEmail,
 };

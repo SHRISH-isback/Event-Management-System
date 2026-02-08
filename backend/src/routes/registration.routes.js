@@ -6,7 +6,9 @@ const {
   getMyRegistrations,
   getEventRegistrations,
   checkRegistration,
-  getRegistrationCount
+  getRegistrationCount,
+  verifyTicket,
+  resendConfirmationEmail
 } = require("../controllers/registration.controller");
 const { requireAuth, requireRole } = require("../middleware/auth");
 
@@ -41,6 +43,20 @@ router.get(
 router.get(
   "/count/:eventId",
   getRegistrationCount
+);
+
+router.get(
+  "/verify/:ticketId",
+  requireAuth,
+  requireRole("ORGANIZER"),
+  verifyTicket
+);
+
+router.post(
+  "/resend/:registrationId",
+  requireAuth,
+  requireRole("PARTICIPANT"),
+  resendConfirmationEmail
 );
 
 module.exports = router;

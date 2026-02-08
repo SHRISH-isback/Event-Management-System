@@ -13,6 +13,8 @@ import EventRegistrations from "./pages/EventRegistrations";
 import Onboarding from "./pages/Onboarding";
 import Profile from "./pages/Profile";
 import OrganizerProfile from "./pages/OrganizerProfile";
+import Clubs from "./pages/Clubs";
+import OrganizerDetail from "./pages/OrganizerDetail";
 
 function App() {
   return (
@@ -138,6 +140,30 @@ function App() {
               <>
                 <Navbar />
                 <EventRegistrations />
+              </>
+            </ProtectedRoute>
+          }
+        />
+        
+        <Route
+          path="/clubs"
+          element={
+            <ProtectedRoute>
+              <>
+                <Navbar />
+                <Clubs />
+              </>
+            </ProtectedRoute>
+          }
+        />
+        
+        <Route
+          path="/organizers/:id"
+          element={
+            <ProtectedRoute>
+              <>
+                <Navbar />
+                <OrganizerDetail />
               </>
             </ProtectedRoute>
           }

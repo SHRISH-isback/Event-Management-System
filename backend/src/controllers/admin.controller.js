@@ -43,4 +43,59 @@ const createOrganizer = async (req, res) => {
   }
 };
 
-module.exports = { createOrganizer };
+const getAllOrganizers = async (req, res) => {
+  try {
+    const organizers = await Organizer.find()
+      .populate("user", "email isActive")
+      .sort({ createdAt: -1 });
+
+    res.json(organizers);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+const toggleOrganizerStatus = async (req, res) => {
+  try {
+    const organizer = await Organizer.findById(req.params.id).populate("user");
+
+    if (!organizer) {
+      return res.status(404).json({ message: "Organizer not found" });
+    }
+
+    const user = await User.findById(organizer.user._id);
+    user.isActive = !user.isActive;
+    await user.save();
+
+    res.json({
+      message: `Organizer ${user.isActive ? "activated" : "deactivated"} successfully`,
+      isActive: user.isActive,
+    });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+const deleteOrganizer = async (req, res) => {
+  try {
+    const organizer = await Organizer.findById(req.params.id);
+
+    if (!organizer) {
+      return res.status(404).json({ message: "Organizer not found" });
+    }
+
+    await User.findByIdAndDelete(organizer.user);
+    await Organizer.findByIdAndDelete(req.params.id);
+
+    res.json({ message: "Organizer permanently removed" });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+module.exports = { 
+  createOrganizer, 
+  getAllOrganizers, 
+  toggleOrganizerStatus, 
+  deleteOrganizer 
+};
