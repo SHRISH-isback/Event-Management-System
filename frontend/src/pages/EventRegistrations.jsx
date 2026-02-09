@@ -39,6 +39,25 @@ export default function EventRegistrations() {
               <p style={{ margin: "5px 0" }}>Quantity: {r.merchDetails.quantity}</p>
             </div>
           )}
+
+          {r.formResponses && Object.keys(r.formResponses).length > 0 && (
+            <div style={{
+              padding: "12px",
+              backgroundColor: "#f0f9ff",
+              borderRadius: "6px",
+              marginTop: "10px",
+              border: "1px solid #bae6fd"
+            }}>
+              <p style={{ margin: "5px 0 10px 0", fontWeight: "bold", color: "#0284c7" }}>
+                Form Responses:
+              </p>
+              {Object.entries(r.formResponses).map(([key, value]) => (
+                <p key={key} style={{ margin: "5px 0", fontSize: "14px" }}>
+                  <b>{key}:</b> {Array.isArray(value) ? value.join(", ") : value}
+                </p>
+              ))}
+            </div>
+          )}
         </div>
       ))}
     </div>

@@ -21,6 +21,9 @@ export default function EventDetails() {
     const [selectedColor, setSelectedColor] = useState("");
     const [quantity, setQuantity] = useState(1);
     const [showPurchaseModal, setShowPurchaseModal] = useState(false);
+    const [showCustomFormModal, setShowCustomFormModal] = useState(false);
+    const [formResponses, setFormResponses] = useState({});
+    const [formErrors, setFormErrors] = useState({});
 
     useEffect(() => {
         const fetchEvent = async () => {
@@ -60,6 +63,11 @@ export default function EventDetails() {
             return;
         }
 
+        if (event.type === "NORMAL" && event.customFields && event.customFields.length > 0 && !showCustomFormModal) {
+            setShowCustomFormModal(true);
+            return;
+        }
+
         try {
             const requestData = {};
 
@@ -73,6 +81,22 @@ export default function EventDetails() {
                 requestData.quantity = quantity;
             }
 
+            if (event.type === "NORMAL" && event.customFields && event.customFields.length > 0) {
+                const errors = {};
+                for (const field of event.customFields) {
+                    if (field.required && (!formResponses[field.label] || formResponses[field.label] === "")) {
+                        errors[field.label] = `${field.label} is required`;
+                    }
+                }
+
+                if (Object.keys(errors).length > 0) {
+                    setFormErrors(errors);
+                    return;
+                }
+
+                requestData.formResponses = formResponses;
+            }
+
             const res = await api.post(`/registrations/${eventId}`, requestData);
             
             const successMsg = event.type === "MERCH" 
@@ -83,6 +107,7 @@ export default function EventDetails() {
             setIsRegistered(true);
             setRegistrationCount(prev => prev + 1);
             setShowPurchaseModal(false);
+            setShowCustomFormModal(false);
             
             if (res.data.qrCode) {
                 setQrCodeData(res.data.qrCode);
@@ -134,6 +159,39 @@ export default function EventDetails() {
         return "Register Now";
     };
 
+    const handleFormFieldChange = (fieldLabel, value) => {
+        setFormResponses(prev => ({
+            ...prev,
+            [fieldLabel]: value
+        }));
+        if (formErrors[fieldLabel]) {
+            setFormErrors(prev => {
+                const newErrors = { ...prev };
+                delete newErrors[fieldLabel];
+                return newErrors;
+            });
+        }
+    };
+
+    const handleCheckboxChange = (fieldLabel, option, checked) => {
+        setFormResponses(prev => {
+            const currentValue = prev[fieldLabel] || [];
+            const valueArray = Array.isArray(currentValue) ? currentValue : [];
+            
+            if (checked) {
+                return {
+                    ...prev,
+                    [fieldLabel]: [...valueArray, option]
+                };
+            } else {
+                return {
+                    ...prev,
+                    [fieldLabel]: valueArray.filter(v => v !== option)
+                };
+            }
+        });
+    };
+
     if (loading) {
         return <div className="container">Loading event...</div>;
     }
@@ -167,7 +225,7 @@ export default function EventDetails() {
                 {event.description}
             </p>
 
-            {/* Event Details Grid */}
+            {}
             <div style={{ 
                 display: "grid", 
                 gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))", 
@@ -452,6 +510,170 @@ export default function EventDetails() {
                                 className="btn"
                                 onClick={() => {
                                     setShowPurchaseModal(false);
+                                    setError("");
+                                }}
+                                style={{ flex: 1, backgroundColor: "#6b7280" }}
+                            >
+                                Cancel
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {}
+            {showCustomFormModal && event.type === "NORMAL" && event.customFields && event.customFields.length > 0 && (
+                <div style={{
+                    position: "fixed",
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    backgroundColor: "rgba(0, 0, 0, 0.5)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    zIndex: 1000,
+                    padding: "20px"
+                }}>
+                    <div style={{
+                        backgroundColor: "white",
+                        padding: "30px",
+                        borderRadius: "12px",
+                        maxWidth: "600px",
+                        width: "100%",
+                        maxHeight: "90vh",
+                        overflowY: "auto"
+                    }}>
+                        <h3 style={{ marginTop: 0, marginBottom: "10px" }}>Complete Registration Form</h3>
+                        <p style={{ color: "#666", fontSize: "14px", marginBottom: "20px" }}>
+                            Please fill out the following information to complete your registration
+                        </p>
+
+                        {Object.keys(formErrors).length > 0 && (
+                            <div style={{ 
+                                padding: "12px", 
+                                backgroundColor: "#fee2e2", 
+                                border: "1px solid #dc2626",
+                                borderRadius: "6px",
+                                marginBottom: "15px",
+                                color: "#991b1b"
+                            }}>
+                                Please fill out all required fields
+                            </div>
+                        )}
+
+                        {event.customFields
+                            .sort((a, b) => a.order - b.order)
+                            .map((field, index) => (
+                            <div key={index} style={{ marginBottom: "20px" }}>
+                                <label style={{ 
+                                    display: "block", 
+                                    marginBottom: "8px", 
+                                    fontWeight: "bold",
+                                    color: "#1f2937"
+                                }}>
+                                    {field.label}
+                                    {field.required && <span style={{ color: "#dc2626" }}> *</span>}
+                                </label>
+
+                                {field.type === "text" && (
+                                    <input
+                                        className="input"
+                                        type="text"
+                                        value={formResponses[field.label] || ""}
+                                        onChange={(e) => handleFormFieldChange(field.label, e.target.value)}
+                                        style={{ 
+                                            width: "100%",
+                                            borderColor: formErrors[field.label] ? "#dc2626" : undefined
+                                        }}
+                                    />
+                                )}
+
+                                {field.type === "dropdown" && (
+                                    <select
+                                        className="input"
+                                        value={formResponses[field.label] || ""}
+                                        onChange={(e) => handleFormFieldChange(field.label, e.target.value)}
+                                        style={{ 
+                                            width: "100%",
+                                            borderColor: formErrors[field.label] ? "#dc2626" : undefined
+                                        }}
+                                    >
+                                        <option value="">-- Select an option --</option>
+                                        {field.options.map(option => (
+                                            <option key={option} value={option}>{option}</option>
+                                        ))}
+                                    </select>
+                                )}
+
+                                {field.type === "checkbox" && (
+                                    <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                                        {field.options.map(option => (
+                                            <label key={option} style={{ 
+                                                display: "flex", 
+                                                alignItems: "center", 
+                                                gap: "8px",
+                                                fontWeight: "normal"
+                                            }}>
+                                                <input
+                                                    type="checkbox"
+                                                    checked={
+                                                        Array.isArray(formResponses[field.label]) && 
+                                                        formResponses[field.label].includes(option)
+                                                    }
+                                                    onChange={(e) => handleCheckboxChange(field.label, option, e.target.checked)}
+                                                />
+                                                <span>{option}</span>
+                                            </label>
+                                        ))}
+                                    </div>
+                                )}
+
+                                {field.type === "file" && (
+                                    <div>
+                                        <input
+                                            className="input"
+                                            type="file"
+                                            onChange={(e) => {
+                                                const file = e.target.files[0];
+                                                if (file) {
+                                                    handleFormFieldChange(field.label, file.name);
+                                                }
+                                            }}
+                                            style={{ width: "100%" }}
+                                        />
+                                        <small style={{ color: "#666", fontSize: "12px" }}>
+                                            Note: File upload functionality is limited in demo mode
+                                        </small>
+                                    </div>
+                                )}
+
+                                {formErrors[field.label] && (
+                                    <div style={{ 
+                                        color: "#dc2626", 
+                                        fontSize: "12px", 
+                                        marginTop: "4px" 
+                                    }}>
+                                        {formErrors[field.label]}
+                                    </div>
+                                )}
+                            </div>
+                        ))}
+
+                        <div style={{ display: "flex", gap: "10px", marginTop: "20px" }}>
+                            <button
+                                className="btn"
+                                onClick={handleRegister}
+                                style={{ flex: 1 }}
+                            >
+                                Complete Registration
+                            </button>
+                            <button
+                                className="btn"
+                                onClick={() => {
+                                    setShowCustomFormModal(false);
+                                    setFormErrors({});
                                     setError("");
                                 }}
                                 style={{ flex: 1, backgroundColor: "#6b7280" }}

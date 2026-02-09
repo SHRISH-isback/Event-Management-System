@@ -54,6 +54,33 @@ const eventSchema = new mongoose.Schema(
       default: "DRAFT",
     },
 
+    customFields: [
+      {
+        label: {
+          type: String,
+          required: true,
+        },
+        type: {
+          type: String,
+          enum: ["text", "dropdown", "checkbox", "file"],
+          required: true,
+        },
+        required: {
+          type: Boolean,
+          default: false,
+        },
+        options: [String],
+        order: {
+          type: Number,
+          default: 0,
+        },
+      },
+    ],
+    formLocked: {
+      type: Boolean,
+      default: false,
+    },
+
     merchVariants: [variantSchema],
     availableSizes: [String],
     availableColors: [String],

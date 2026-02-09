@@ -10,7 +10,7 @@ const registerForEvent = async (req, res) => {
   try {
     const eventId = req.params.eventId;
     const participantId = req.user.id;
-    const { size, color, quantity } = req.body;
+    const { size, color, quantity, formResponses } = req.body;
 
     const event = await Event.findById(eventId);
     if (!event || event.status !== "PUBLISHED") {
@@ -30,6 +30,46 @@ const registerForEvent = async (req, res) => {
 
     if (alreadyRegistered) {
       return res.status(400).json({ message: "Already registered" });
+    }
+
+    if (event.type === "NORMAL" && event.customFields && event.customFields.length > 0) {
+      const validationErrors = [];
+      
+      for (const field of event.customFields) {
+        const response = formResponses?.[field.label];
+        
+        if (field.required && (!response || response === "")) {
+          validationErrors.push(`${field.label} is required`);
+          continue;
+        }
+
+        if (field.type === "dropdown" && response) {
+          if (!field.options.includes(response)) {
+            validationErrors.push(`Invalid value for ${field.label}`);
+          }
+        }
+        
+        if (field.type === "checkbox" && response) {
+          const selectedOptions = Array.isArray(response) ? response : [response];
+          for (const option of selectedOptions) {
+            if (!field.options.includes(option)) {
+              validationErrors.push(`Invalid option for ${field.label}: ${option}`);
+            }
+          }
+        }
+      }
+
+      if (validationErrors.length > 0) {
+        return res.status(400).json({ 
+          message: "Form validation failed", 
+          errors: validationErrors 
+        });
+      }
+
+      if (!event.formLocked) {
+        event.formLocked = true;
+        await event.save();
+      }
     }
 
     if (event.type === "MERCH") {
@@ -87,6 +127,10 @@ const registerForEvent = async (req, res) => {
 
     if (event.type === "MERCH") {
       registrationData.merchDetails = { size, color, quantity };
+    }
+
+    if (event.type === "NORMAL" && formResponses) {
+      registrationData.formResponses = formResponses;
     }
 
     const registration = await Registration.create(registrationData);
