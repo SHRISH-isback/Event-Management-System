@@ -1,11 +1,47 @@
-
 .container {
   max-width: 900px;
-  margin: 40px auto;
+  margin: 30px auto;
   padding: 20px;
   background: white;
   border-radius: 8px;
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
+}
+
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.modal-content {
+  background: white;
+  padding: 30px;
+  border-radius: 12px;
+  max-width: 500px;
+  width: 90%;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+}
+
+.btn-secondary {
+  padding: 8px 14px;
+  border-radius: 6px;
+  font-size: 14px;
+  background-color: #6b7280;
+  color: white;
+  border: none;
+  cursor: pointer;
+}
+
+.btn-secondary:hover {
+  background-color: #4b5563;
 }
 
 h1,
@@ -83,12 +119,4 @@ h3 {
 
 .btn-logout:hover {
   background-color: #b91c1c;
-}
-
-.container {
-  max-width: 900px;
-  margin: 30px auto;
-  padding: 20px;
-  background: white;
-  border-radius: 8px;
 }

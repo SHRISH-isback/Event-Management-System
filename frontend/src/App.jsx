@@ -15,6 +15,7 @@ import Profile from "./pages/Profile";
 import OrganizerProfile from "./pages/OrganizerProfile";
 import Clubs from "./pages/Clubs";
 import OrganizerDetail from "./pages/OrganizerDetail";
+import SecurityDashboard from "./pages/SecurityDashboard";
 
 function App() {
   return (
@@ -164,6 +165,17 @@ function App() {
               <>
                 <Navbar />
                 <OrganizerDetail />
+              </>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/security"
+          element={
+            <ProtectedRoute>
+              <>
+                <Navbar />
+                <SecurityDashboard />
               </>
             </ProtectedRoute>
           }

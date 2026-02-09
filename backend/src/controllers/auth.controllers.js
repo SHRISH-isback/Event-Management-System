@@ -2,6 +2,7 @@ const jwt = require("jsonwebtoken");
 const User = require("../models/User");
 const ParticipantProfile = require("../models/Participant");
 const { PARTICIPANT } = require("../utils/roles");
+const SecurityEvent = require("../models/SecurityEvent");
 
 const register = async (req, res) => {
   try {
@@ -54,11 +55,27 @@ const register = async (req, res) => {
 const login = async (req, res) => {
   try {
     const { email, password } = req.body;
+    const ipAddress = req.ip || req.connection.remoteAddress;
+    const userAgent = req.headers["user-agent"];
+    
     if (!email || !password) {
       return res.status(400).json({ message: "Missing credentials" });
     }
+    
     const user = await User.findOne({ email });
     if (!user || !(await user.comparePassword(password))) {
+      await SecurityEvent.create({
+        eventType: "FAILED_LOGIN",
+        ipAddress,
+        userAgent,
+        email,
+        endpoint: req.originalUrl,
+        severity: "MEDIUM",
+        details: {
+          reason: user ? "Invalid password" : "User not found",
+        },
+      });
+      
       return res.status(401).json({ message: "Invalid credentials" });
     }
 

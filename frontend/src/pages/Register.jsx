@@ -2,6 +2,7 @@ import { useState } from "react";
 import api from "../api/axios";
 import "../App.css";
 import { useNavigate } from "react-router-dom";
+import ReCaptcha, { useRecaptcha } from "../components/ReCaptcha";
 
 export default function Register() {
   const [email, setEmail] = useState("");
@@ -15,6 +16,7 @@ export default function Register() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const navigate = useNavigate();
+  const { token: captchaToken, isVerified, captchaRef, handleVerify, handleExpire, reset } = useRecaptcha();
 
   const handleRegister = async () => {
     setError("");
@@ -45,6 +47,11 @@ export default function Register() {
       return;
     }
 
+    if (!isVerified) {
+      setError("Please complete the CAPTCHA verification");
+      return;
+    }
+
     try {
       const response = await api.post("/auth/register", {
         email,
@@ -54,18 +61,19 @@ export default function Register() {
         lastName,
         contactNumber,
         collegeOrOrg,
+        captchaToken,
       });
 
       setSuccess("Registration successful! Redirecting to preferences...");
       
       setTimeout(() => {
-        // Store token and navigate to onboarding
         localStorage.setItem("token", response.data.token);
         localStorage.setItem("role", response.data.role);
         navigate("/onboarding");
       }, 2000);
     } catch (err) {
       setError(err.response?.data?.message || "Registration failed");
+      reset(); 
     }
   };
 
@@ -146,6 +154,12 @@ export default function Register() {
           <option value="NON_IIIT">External Participant</option>
         </select>
       </div>
+
+      <ReCaptcha
+        ref={captchaRef}
+        onVerify={handleVerify}
+        onExpire={handleExpire}
+      />
 
       <button className="btn" onClick={handleRegister}>
         Register
