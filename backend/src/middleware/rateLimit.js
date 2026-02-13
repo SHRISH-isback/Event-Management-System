@@ -110,9 +110,6 @@ const loginRateLimiter = rateLimit({
       message: "Too many login attempts. Please try again later.",
     });
   },
-  keyGenerator: (req) => {
-    return req.ip || req.connection.remoteAddress;
-  },
 });
 
 const registerRateLimiter = rateLimit({
@@ -140,9 +137,6 @@ const registerRateLimiter = rateLimit({
     res.status(429).json({
       message: "Too many registration attempts. Please try again later.",
     });
-  },
-  keyGenerator: (req) => {
-    return req.ip || req.connection.remoteAddress;
   },
 });
 

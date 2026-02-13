@@ -18,4 +18,12 @@ const requireRole = (role) => (req, res, next) => {
   next();
 };
 
-module.exports = { requireAuth, requireRole };
+const verifyToken = requireAuth;
+const verifyAdmin = (req, res, next) => {
+  requireAuth(req, res, (err) => {
+    if (err) return next(err);
+    requireRole('admin')(req, res, next);
+  });
+};
+
+module.exports = { requireAuth, requireRole, verifyToken, verifyAdmin };
