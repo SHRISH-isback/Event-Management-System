@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../api/axios";
 import "../App.css";
@@ -18,7 +18,7 @@ export default function Events() {
   const [sortBy, setSortBy] = useState("startDate");
   const [sortOrder, setSortOrder] = useState("asc");
   const [followedOnly, setFollowedOnly] = useState(false);
-  
+
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -27,7 +27,7 @@ export default function Events() {
 
   useEffect(() => {
     fetchEvents();
-  }, [search, type, tags, minFee, maxFee, startDateFrom, startDateTo, sortBy, sortOrder, followedOnly]);
+  }, [search, type, tags, minFee, maxFee, startDateFrom, startDateTo, sortBy, sortOrder, followedOnly, fetchEvents]);
 
   const fetchTrendingEvents = async () => {
     try {
@@ -38,7 +38,7 @@ export default function Events() {
     }
   };
 
-  const fetchEvents = async () => {
+  const fetchEvents = useCallback(async () => {
     try {
       setLoading(true);
       
@@ -62,7 +62,7 @@ export default function Events() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [search, type, tags, minFee, maxFee, startDateFrom, startDateTo, sortBy, sortOrder, followedOnly]);
 
   const handleClearFilters = () => {
     setSearch("");
