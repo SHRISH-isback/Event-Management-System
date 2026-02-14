@@ -21,14 +21,6 @@ export default function Events() {
 
   const navigate = useNavigate();
 
-  useEffect(() => {
-    fetchTrendingEvents();
-  }, []);
-
-  useEffect(() => {
-    fetchEvents();
-  }, [search, type, tags, minFee, maxFee, startDateFrom, startDateTo, sortBy, sortOrder, followedOnly, fetchEvents]);
-
   const fetchTrendingEvents = async () => {
     try {
       const res = await api.get("/events/trending");
@@ -63,6 +55,14 @@ export default function Events() {
       setLoading(false);
     }
   }, [search, type, tags, minFee, maxFee, startDateFrom, startDateTo, sortBy, sortOrder, followedOnly]);
+
+  useEffect(() => {
+    fetchTrendingEvents();
+  }, []);
+
+  useEffect(() => {
+    fetchEvents();
+  }, [fetchEvents]);
 
   const handleClearFilters = () => {
     setSearch("");
