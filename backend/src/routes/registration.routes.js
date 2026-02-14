@@ -8,7 +8,10 @@ const {
   checkRegistration,
   getRegistrationCount,
   verifyTicket,
-  resendConfirmationEmail
+  resendConfirmationEmail,
+  exportToCalendar,
+  exportBatchToCalendar,
+  getCalendarLinks
 } = require("../controllers/registration.controller");
 const { requireAuth, requireRole } = require("../middleware/auth");
 
@@ -57,6 +60,27 @@ router.post(
   requireAuth,
   requireRole("PARTICIPANT"),
   resendConfirmationEmail
+);
+
+router.get(
+  "/calendar/export/:registrationId",
+  requireAuth,
+  requireRole("PARTICIPANT"),
+  exportToCalendar
+);
+
+router.post(
+  "/calendar/export/batch",
+  requireAuth,
+  requireRole("PARTICIPANT"),
+  exportBatchToCalendar
+);
+
+router.get(
+  "/calendar/links/:registrationId",
+  requireAuth,
+  requireRole("PARTICIPANT"),
+  getCalendarLinks
 );
 
 module.exports = router;

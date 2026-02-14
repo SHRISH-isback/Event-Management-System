@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import api from "../api/axios";
+import CalendarExport from "../components/CalendarExport";
 import "../App.css";
 
 export default function EventDetails() {
@@ -10,6 +11,7 @@ export default function EventDetails() {
     const [event, setEvent] = useState(null);
     const [registrationCount, setRegistrationCount] = useState(0);
     const [isRegistered, setIsRegistered] = useState(false);
+    const [registrationId, setRegistrationId] = useState(null);
     const [showQRModal, setShowQRModal] = useState(false);
     const [qrCodeData, setQrCodeData] = useState(null);
     const [ticketId, setTicketId] = useState(null);
@@ -24,6 +26,7 @@ export default function EventDetails() {
     const [showCustomFormModal, setShowCustomFormModal] = useState(false);
     const [formResponses, setFormResponses] = useState({});
     const [formErrors, setFormErrors] = useState({});
+    const [showCalendarExport, setShowCalendarExport] = useState(false);
 
     useEffect(() => {
         const fetchEvent = async () => {
@@ -35,6 +38,7 @@ export default function EventDetails() {
                     try {
                         const regRes = await api.get(`/registrations/check/${eventId}`);
                         setIsRegistered(regRes.data.isRegistered);
+                        setRegistrationId(regRes.data.registrationId);
                     } catch (err) {
                     }
                 }
@@ -106,6 +110,7 @@ export default function EventDetails() {
             setMessage(successMsg);
             setIsRegistered(true);
             setRegistrationCount(prev => prev + 1);
+            setRegistrationId(res.data.registrationId);
             setShowPurchaseModal(false);
             setShowCustomFormModal(false);
             
@@ -114,6 +119,8 @@ export default function EventDetails() {
                 setTicketId(res.data.ticketId);
                 setShowQRModal(true);
             }
+
+            setRegistrationId(res.data.ticketId);
         } catch (err) {
             setError(
                 err.response?.data?.message || "Registration failed"
@@ -885,13 +892,14 @@ export default function EventDetails() {
             </div>}
 
             {/* Action Buttons */}
-            <div style={{ display: "flex", gap: "10px", marginTop: "20px" }}>
-                {role === "PARTICIPANT" && (
+            <div style={{ display: "flex", gap: "10px", marginTop: "20px", flexWrap: "wrap" }}>
+                {role === "PARTICIPANT" && !isRegistered && (
                     <button 
                         className="btn" 
                         onClick={handleRegister}
                         disabled={!canRegister()}
                         style={{
+                            flex: "1 1 auto",
                             opacity: canRegister() ? 1 : 0.5,
                             cursor: canRegister() ? "pointer" : "not-allowed"
                         }}
@@ -900,14 +908,68 @@ export default function EventDetails() {
                     </button>
                 )}
 
+                {role === "PARTICIPANT" && isRegistered && registrationId && new Date(event.startDate) >= new Date() && (
+                    <>
+                        <button 
+                            className="btn" 
+                            disabled
+                            style={{
+                                flex: "1 1 auto",
+                                opacity: 0.7,
+                                cursor: "not-allowed",
+                                backgroundColor: "#6b7280"
+                            }}
+                        >
+                            ✓ Already Registered
+                        </button>
+                        <button 
+                            className="btn" 
+                            onClick={() => setShowCalendarExport(true)}
+                            style={{
+                                flex: "1 1 auto",
+                                backgroundColor: "#28a745"
+                            }}
+                        >
+                             Add to Calendar
+                        </button>
+                    </>
+                )}
+
+                {role === "PARTICIPANT" && isRegistered && (!registrationId || new Date(event.startDate) < new Date()) && (
+                    <button 
+                        className="btn" 
+                        disabled
+                        style={{
+                            flex: "1 1 auto",
+                            opacity: 0.7,
+                            cursor: "not-allowed",
+                            backgroundColor: "#6b7280"
+                        }}
+                    >
+                    Already Registered
+                    </button>
+                )}
+
                 <button
                     className="btn"
-                    style={{ backgroundColor: "#6b7280" }}
+                    style={{ 
+                        backgroundColor: "#6b7280",
+                        flex: "0 1 auto"
+                    }}
                     onClick={() => navigate(-1)}
                 >
-                    ← Back
+                     Back
                 </button>
             </div>
+
+            {}
+            {showCalendarExport && registrationId && event && (
+                <CalendarExport 
+                    registrationId={registrationId}
+                    eventName={event.name}
+                    onClose={() => setShowCalendarExport(false)} 
+                />
+            )}
         </div>
     );
 }

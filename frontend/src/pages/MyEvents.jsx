@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import api from "../api/axios";
+import CalendarExport from "../components/CalendarExport";
+import BatchCalendarExport from "../components/BatchCalendarExport";
 import "../App.css";
 
 export default function MyEvents() {
@@ -10,6 +12,9 @@ export default function MyEvents() {
   const [selectedRegistration, setSelectedRegistration] = useState(null);
   const [qrCodeData, setQrCodeData] = useState(null);
   const [resendLoading, setResendLoading] = useState(false);
+  const [showCalendarExport, setShowCalendarExport] = useState(false);
+  const [calendarRegistration, setCalendarRegistration] = useState(null);
+  const [showBatchCalendarExport, setShowBatchCalendarExport] = useState(false);
 
   useEffect(() => {
     const fetchMyEvents = async () => {
@@ -67,6 +72,24 @@ export default function MyEvents() {
     } finally {
       setResendLoading(false);
     }
+  };
+
+  const handleAddToCalendar = (registration) => {
+    setCalendarRegistration(registration);
+    setShowCalendarExport(true);
+  };
+
+  const handleBatchCalendarExport = () => {
+    const eligibleRegistrations = filteredRegistrations.filter(
+      reg => reg.status === "REGISTERED" && new Date(reg.event.startDate) >= new Date()
+    );
+    
+    if (eligibleRegistrations.length === 0) {
+      alert("No upcoming registered events available for export");
+      return;
+    }
+    
+    setShowBatchCalendarExport(true);
   };
 
   const getTabCount = (tab) => {
@@ -159,19 +182,52 @@ export default function MyEvents() {
       <div
         style={{
           display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
           gap: "10px",
-          marginBottom: "30px",
-          flexWrap: "wrap",
-          padding: "15px",
-          backgroundColor: "#f9fafb",
-          borderRadius: "12px",
+          marginBottom: "20px",
+          flexWrap: "wrap"
         }}
       >
-        <TabButton value="upcoming" label="Upcoming" />
-        <TabButton value="normal" label="Normal Events" />
-        <TabButton value="merchandise" label="Merchandise" />
-        <TabButton value="completed" label="Completed" />
-        <TabButton value="cancelled" label="Cancelled" />
+        <div
+          style={{
+            display: "flex",
+            gap: "10px",
+            flexWrap: "wrap",
+            padding: "15px",
+            backgroundColor: "#f9fafb",
+            borderRadius: "12px",
+            flex: 1
+          }}
+        >
+          <TabButton value="upcoming" label="Upcoming" />
+          <TabButton value="normal" label="Normal Events" />
+          <TabButton value="merchandise" label="Merchandise" />
+          <TabButton value="completed" label="Completed" />
+          <TabButton value="cancelled" label="Cancelled" />
+        </div>
+
+        {filteredRegistrations.some(reg => reg.status === "REGISTERED" && new Date(reg.event.startDate) >= new Date()) && (
+          <button
+            onClick={handleBatchCalendarExport}
+            style={{
+              padding: "12px 20px",
+              backgroundColor: "#28a745",
+              color: "white",
+              border: "none",
+              borderRadius: "8px",
+              cursor: "pointer",
+              fontSize: "14px",
+              fontWeight: "600",
+              display: "flex",
+              alignItems: "center",
+              gap: "8px",
+              whiteSpace: "nowrap"
+            }}
+          >
+             Export to Calendar
+          </button>
+        )}
       </div>
 
       {}
@@ -283,34 +339,58 @@ export default function MyEvents() {
 
           {}
           {reg.status === "REGISTERED" && (
-            <button
-              onClick={() => handleViewQRCode(reg)}
-              disabled={resendLoading}
-              style={{
-                marginTop: "15px",
-                padding: "12px 20px",
-                backgroundColor: "#4f46e5",
-                color: "white",
-                border: "none",
-                borderRadius: "8px",
-                cursor: resendLoading ? "not-allowed" : "pointer",
-                fontSize: "14px",
-                fontWeight: "600",
-                width: "100%",
-                opacity: resendLoading ? 0.6 : 1,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: "8px"
-              }}
-            >
-              {resendLoading ? "Loading..." : (
-                <>
-                  <span></span>
-                  View QR Code & Resend Email
-                </>
+            <div style={{ display: "flex", gap: "10px", marginTop: "15px" }}>
+              <button
+                onClick={() => handleViewQRCode(reg)}
+                disabled={resendLoading}
+                style={{
+                  flex: 1,
+                  padding: "12px 20px",
+                  backgroundColor: "#4f46e5",
+                  color: "white",
+                  border: "none",
+                  borderRadius: "8px",
+                  cursor: resendLoading ? "not-allowed" : "pointer",
+                  fontSize: "14px",
+                  fontWeight: "600",
+                  opacity: resendLoading ? 0.6 : 1,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: "8px"
+                }}
+              >
+                {resendLoading ? "Loading..." : (
+                  <>
+                    <span></span>
+                    View QR Code
+                  </>
+                )}
+              </button>
+              
+              {new Date(reg.event.startDate) >= new Date() && (
+                <button
+                  onClick={() => handleAddToCalendar(reg)}
+                  style={{
+                    flex: 1,
+                    padding: "12px 20px",
+                    backgroundColor: "#28a745",
+                    color: "white",
+                    border: "none",
+                    borderRadius: "8px",
+                    cursor: "pointer",
+                    fontSize: "14px",
+                    fontWeight: "600",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: "8px"
+                  }}
+                >
+                   Add to Calendar
+                </button>
               )}
-            </button>
+            </div>
           )}
 
           {}
@@ -502,6 +582,26 @@ export default function MyEvents() {
             </div>
           </div>
         </div>
+      )}
+
+      {showCalendarExport && calendarRegistration && (
+        <CalendarExport
+          registrationId={calendarRegistration._id}
+          eventName={calendarRegistration.event.name}
+          onClose={() => {
+            setShowCalendarExport(false);
+            setCalendarRegistration(null);
+          }}
+        />
+      )}
+
+      {showBatchCalendarExport && (
+        <BatchCalendarExport
+          registrations={filteredRegistrations.filter(
+            (reg) => reg.status === "REGISTERED" && new Date(reg.event.startDate) >= new Date()
+          )}
+          onClose={() => setShowBatchCalendarExport(false)}
+        />
       )}
     </div>
   );

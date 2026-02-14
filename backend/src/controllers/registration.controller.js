@@ -5,6 +5,12 @@ const Participant = require("../models/Participant");
 const crypto = require("crypto");
 const { sendRegistrationEmail } = require("../utils/emailService");
 const { generateQRCode, createTicketData } = require("../utils/qrCodeService");
+const { 
+  generateICSFile, 
+  generateBatchICSFile,
+  generateGoogleCalendarURL,
+  generateOutlookCalendarURL 
+} = require("../utils/calendarService");
 
 const registerForEvent = async (req, res) => {
   try {
@@ -180,6 +186,7 @@ const registerForEvent = async (req, res) => {
     res.status(201).json({
       message: event.type === "MERCH" ? "Purchase successful" : "Registered successfully",
       ticketId: registration.ticketId,
+      registrationId: registration._id,
       merchDetails: registration.merchDetails,
       qrCode: qrCodeDataUrl,
     });
@@ -229,9 +236,13 @@ const checkRegistration = async (req, res) => {
       participant: req.user.id,
       event: req.params.eventId,
       status: "REGISTERED",
-    });
+    }).populate("event", "name startDate endDate");
 
-    res.json({ isRegistered: !!registration });
+    res.json({ 
+      isRegistered: !!registration,
+      registrationId: registration?._id,
+      event: registration?.event
+    });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -345,6 +356,109 @@ const resendConfirmationEmail = async (req, res) => {
   }
 };
 
+const exportToCalendar = async (req, res) => {
+  try {
+    const { registrationId } = req.params;
+    const { reminderMinutes = 30 } = req.query;
+
+    const registration = await Registration.findById(registrationId)
+      .populate("event")
+      .populate("participant");
+
+    if (!registration) {
+      return res.status(404).json({ message: "Registration not found" });
+    }
+
+    if (registration.participant._id.toString() !== req.user.id) {
+      return res.status(403).json({ message: "Not authorized" });
+    }
+
+    const icsContent = generateICSFile(
+      registration.event, 
+      registration, 
+      parseInt(reminderMinutes)
+    );
+
+    const filename = `${registration.event.name.replace(/[^a-z0-9]/gi, '_')}_${registration.ticketId}.ics`;
+
+    res.setHeader("Content-Type", "text/calendar; charset=utf-8");
+    res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+    res.send(icsContent);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+const exportBatchToCalendar = async (req, res) => {
+  try {
+    const { registrationIds, reminderMinutes = 30 } = req.body;
+
+    if (!registrationIds || !Array.isArray(registrationIds) || registrationIds.length === 0) {
+      return res.status(400).json({ message: "Please provide registration IDs" });
+    }
+
+    const registrations = await Registration.find({
+      _id: { $in: registrationIds },
+      participant: req.user.id,
+      status: "REGISTERED"
+    }).populate("event");
+
+    if (registrations.length === 0) {
+      return res.status(404).json({ message: "No valid registrations found" });
+    }
+
+    const eventsWithRegistrations = registrations.map(reg => ({
+      event: reg.event,
+      registration: reg
+    }));
+
+    const icsContent = generateBatchICSFile(
+      eventsWithRegistrations, 
+      parseInt(reminderMinutes)
+    );
+
+    const filename = `my_events_${new Date().toISOString().split('T')[0]}.ics`;
+
+    res.setHeader("Content-Type", "text/calendar; charset=utf-8");
+    res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+    res.send(icsContent);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+const getCalendarLinks = async (req, res) => {
+  try {
+    const { registrationId } = req.params;
+
+    const registration = await Registration.findById(registrationId)
+      .populate("event")
+      .populate("participant");
+
+    if (!registration) {
+      return res.status(404).json({ message: "Registration not found" });
+    }
+
+    if (registration.participant._id.toString() !== req.user.id) {
+      return res.status(403).json({ message: "Not authorized" });
+    }
+
+    const googleCalendarURL = generateGoogleCalendarURL(registration.event, registration);
+    const outlookCalendarURL = generateOutlookCalendarURL(registration.event, registration);
+
+    res.json({
+      googleCalendar: googleCalendarURL,
+      outlook: outlookCalendarURL,
+      event: {
+        name: registration.event.name,
+        startDate: registration.event.startDate,
+        endDate: registration.event.endDate,
+      }
+    });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
 module.exports = { 
   registerForEvent, 
   getMyRegistrations, 
@@ -353,4 +467,7 @@ module.exports = {
   getRegistrationCount,
   verifyTicket,
   resendConfirmationEmail,
+  exportToCalendar,
+  exportBatchToCalendar,
+  getCalendarLinks
 };
