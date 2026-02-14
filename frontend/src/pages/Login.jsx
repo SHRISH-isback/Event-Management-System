@@ -2,27 +2,16 @@ import { useState } from "react";
 import api from "../api/axios";
 import "../App.css";
 import { useNavigate } from "react-router-dom";
-import ReCaptcha, { useRecaptcha } from "../components/ReCaptcha";
 
 export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const navigate = useNavigate();
-  const { token: captchaToken, isVerified, captchaRef, handleVerify, handleExpire, reset } = useRecaptcha();
 
 const handleLogin = async () => {
   try {
-    if (!isVerified) {
-      setError("Please complete the CAPTCHA verification");
-      return;
-    }
-
-    const res = await api.post("/auth/login", { 
-      email, 
-      password,
-      captchaToken 
-    });
+    const res = await api.post("/auth/login", { email, password });
 
     localStorage.setItem("token", res.data.token);
     localStorage.setItem("role", res.data.role);
@@ -34,10 +23,8 @@ const handleLogin = async () => {
     } else {
       navigate("/events");
     }
-  } catch (err) {
-    const message = err.response?.data?.message || "Invalid email or password";
-    setError(message);
-    reset(); 
+  } catch {
+    setError("Invalid email or password");
   }
 };
 
@@ -61,12 +48,6 @@ const handleLogin = async () => {
         placeholder="Password"
         value={password}
         onChange={(e) => setPassword(e.target.value)}
-      />
-
-      <ReCaptcha
-        ref={captchaRef}
-        onVerify={handleVerify}
-        onExpire={handleExpire}
       />
 
       <button className="btn" onClick={handleLogin}>

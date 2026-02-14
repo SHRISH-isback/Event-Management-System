@@ -7,8 +7,6 @@ const eventRoutes = require("./routes/event.routes");
 const registrationRoutes = require("./routes/registration.routes");
 const participantRoutes = require("./routes/participant.routes");
 const organizerRoutes = require("./routes/organizer.routes");
-const securityRoutes = require("./routes/security.routes");
-const { checkBlockedIP, apiRateLimiter } = require("./middleware/rateLimit");
 
 const app = express();
 
@@ -27,8 +25,6 @@ const corsOptions = {
 
 app.use(cors(corsOptions));
 app.use(express.json());
-app.use(checkBlockedIP);
-app.use("/api/", apiRateLimiter);
 
 app.get("/", (req, res) => {
   res.json({ message: "Event Management System API is running" });
@@ -40,7 +36,6 @@ app.use("/api/events", eventRoutes);
 app.use("/api/registrations", registrationRoutes);
 app.use("/api/participants", participantRoutes);
 app.use("/api/organizers", organizerRoutes);
-app.use("/api/security", securityRoutes);
 
 //TEMP TEST ROUTE
 app.get("/api/protected", requireAuth, (req, res) => {
