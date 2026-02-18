@@ -14,10 +14,6 @@ export default function PasswordResetManagement() {
   const [adminComment, setAdminComment] = useState("");
   const [generatedPassword, setGeneratedPassword] = useState(null);
 
-  useEffect(() => {
-    fetchRequests();
-  }, [filterStatus]);
-
   const fetchRequests = async () => {
     try {
       const params = filterStatus !== "ALL" ? { status: filterStatus } : {};
@@ -29,6 +25,11 @@ export default function PasswordResetManagement() {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    fetchRequests();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filterStatus]);
 
   const handleApprove = async () => {
     if (!selectedRequest) return;

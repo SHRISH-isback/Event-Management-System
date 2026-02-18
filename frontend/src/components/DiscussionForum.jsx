@@ -9,7 +9,6 @@ export default function DiscussionForum({ eventId }) {
   const [error, setError] = useState("");
   const [replyingTo, setReplyingTo] = useState(null);
   const [expandedThreads, setExpandedThreads] = useState(new Set());
-  const [selectedEmoji, setSelectedEmoji] = useState("");
   const [showEmojiPicker, setShowEmojiPicker] = useState(null);
   const socketRef = useRef(null);
   const messagesEndRef = useRef(null);
@@ -18,16 +17,16 @@ export default function DiscussionForum({ eventId }) {
 
   const emojis = ["👍", "❤️", "😊", "🎉", "👏", "🔥", "💯", "✅"];
 
-  useEffect(() => {
-    fetchMessages();
-    initializeSocket();
-
-    return () => {
-      if (socketRef.current) {
-        socketRef.current.disconnect();
-      }
-    };
-  }, [eventId]);
+  const fetchMessages = async () => {
+    try {
+      const res = await api.get(`/forum/${eventId}/messages`);
+      setMessages(res.data.messages);
+      setLoading(false);
+    } catch (err) {
+      setError(err.response?.data?.message || "Failed to load messages");
+      setLoading(false);
+    }
+  };
 
   const initializeSocket = () => {
     const token = localStorage.getItem("token");
@@ -64,16 +63,17 @@ export default function DiscussionForum({ eventId }) {
     });
   };
 
-  const fetchMessages = async () => {
-    try {
-      const res = await api.get(`/forum/${eventId}/messages`);
-      setMessages(res.data.messages);
-      setLoading(false);
-    } catch (err) {
-      setError(err.response?.data?.message || "Failed to load messages");
-      setLoading(false);
-    }
-  };
+  useEffect(() => {
+    fetchMessages();
+    initializeSocket();
+
+    return () => {
+      if (socketRef.current) {
+        socketRef.current.disconnect();
+      }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [eventId]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
