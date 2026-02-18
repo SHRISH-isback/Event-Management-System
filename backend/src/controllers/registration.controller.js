@@ -147,7 +147,7 @@ const registerForEvent = async (req, res) => {
         const ticketData = createTicketData(registration, event);
         qrCodeDataUrl = await generateQRCode(ticketData);
       } catch (qrError) {
-        console.error("Error generating QR code:", qrError);
+        // QR code generation failed
       }
     }
 
@@ -181,9 +181,8 @@ const registerForEvent = async (req, res) => {
         };
 
         await sendRegistrationEmail(user.email, emailData);
-        console.log(`Confirmation email sent to ${user.email}`);
       } catch (emailError) {
-        console.error("Error sending confirmation email:", emailError);
+        // Email sending failed
       }
     }
 
@@ -369,6 +368,10 @@ const exportToCalendar = async (req, res) => {
     const { registrationId } = req.params;
     const { reminderMinutes = 30 } = req.query;
 
+    if (!registrationId || !registrationId.match(/^[0-9a-fA-F]{24}$/)) {
+      return res.status(400).json({ message: "Invalid registration ID format" });
+    }
+
     const registration = await Registration.findById(registrationId)
       .populate("event")
       .populate("participant");
@@ -437,6 +440,10 @@ const exportBatchToCalendar = async (req, res) => {
 const getCalendarLinks = async (req, res) => {
   try {
     const { registrationId } = req.params;
+
+    if (!registrationId || !registrationId.match(/^[0-9a-fA-F]{24}$/)) {
+      return res.status(400).json({ message: "Invalid registration ID format" });
+    }
 
     const registration = await Registration.findById(registrationId)
       .populate("event")
@@ -604,7 +611,7 @@ const approvePayment = async (req, res) => {
       const ticketData = createTicketData(registration, event);
       qrCodeDataUrl = await generateQRCode(ticketData);
     } catch (qrError) {
-      console.error("Error generating QR code:", qrError);
+      // QR code generation failed
     }
 
     try {
@@ -638,9 +645,8 @@ const approvePayment = async (req, res) => {
       };
 
       await sendRegistrationEmail(user.email, emailData);
-      console.log(`Order confirmation email sent to ${user.email}`);
     } catch (emailError) {
-      console.error("Error sending confirmation email:", emailError);
+      // Email sending failed
     }
 
     res.json({ 

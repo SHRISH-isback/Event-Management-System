@@ -112,16 +112,14 @@ export default function EventDetails() {
             setIsRegistered(true);
             setRegistrationCount(prev => prev + 1);
             setRegistrationId(res.data.registrationId);
+            setTicketId(res.data.ticketId);
             setShowPurchaseModal(false);
             setShowCustomFormModal(false);
             
             if (res.data.qrCode) {
                 setQrCodeData(res.data.qrCode);
-                setTicketId(res.data.ticketId);
                 setShowQRModal(true);
             }
-
-            setRegistrationId(res.data.ticketId);
         } catch (err) {
             setError(
                 err.response?.data?.message || "Registration failed"

@@ -14,6 +14,12 @@ export default function CalendarExport({ registrationId, eventName, onClose }) {
         { responseType: "blob" }
       );
       
+      if (response.data.type === "application/json") {
+        const text = await response.data.text();
+        const errorData = JSON.parse(text);
+        throw new Error(errorData.message || "Failed to download calendar file");
+      }
+      
       const blob = new Blob([response.data], { type: "text/calendar" });
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement("a");
@@ -26,7 +32,24 @@ export default function CalendarExport({ registrationId, eventName, onClose }) {
       
       alert("Calendar file downloaded successfully!");
     } catch (err) {
-      alert(err.response?.data?.message || "Failed to download calendar file");
+      let errorMessage = "Failed to download calendar file";
+      
+      if (err.response?.data) {
+        if (err.response.data instanceof Blob && err.response.data.type === "application/json") {
+          try {
+            const text = await err.response.data.text();
+            const errorData = JSON.parse(text);
+            errorMessage = errorData.message || errorMessage;
+          } catch (parseError) {
+          }
+        } else if (typeof err.response.data === 'object') {
+          errorMessage = err.response.data.message || errorMessage;
+        }
+      } else if (err.message) {
+        errorMessage = err.message;
+      }
+      
+      alert(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -36,9 +59,13 @@ export default function CalendarExport({ registrationId, eventName, onClose }) {
     try {
       setLoading(true);
       const response = await api.get(`/registrations/calendar/links/${registrationId}`);
-      window.open(response.data.googleCalendar, "_blank");
+      if (response.data.googleCalendar) {
+        window.open(response.data.googleCalendar, "_blank");
+      } else {
+        throw new Error("Google Calendar link not available");
+      }
     } catch (err) {
-      alert(err.response?.data?.message || "Failed to open Google Calendar");
+      alert(err.response?.data?.message || err.message || "Failed to open Google Calendar");
     } finally {
       setLoading(false);
     }
@@ -48,9 +75,13 @@ export default function CalendarExport({ registrationId, eventName, onClose }) {
     try {
       setLoading(true);
       const response = await api.get(`/registrations/calendar/links/${registrationId}`);
-      window.open(response.data.outlook, "_blank");
+      if (response.data.outlook) {
+        window.open(response.data.outlook, "_blank");
+      } else {
+        throw new Error("Outlook Calendar link not available");
+      }
     } catch (err) {
-      alert(err.response?.data?.message || "Failed to open Outlook Calendar");
+      alert(err.response?.data?.message || err.message || "Failed to open Outlook Calendar");
     } finally {
       setLoading(false);
     }
