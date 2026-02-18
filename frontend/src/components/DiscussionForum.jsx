@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import api from "../api/axios";
 import { io } from "socket.io-client";
 
@@ -17,7 +17,11 @@ export default function DiscussionForum({ eventId }) {
 
   const emojis = ["👍", "❤️", "😊", "🎉", "👏", "🔥", "💯", "✅"];
 
-  const fetchMessages = async () => {
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  const fetchMessages = useCallback(async () => {
     try {
       const res = await api.get(`/forum/${eventId}/messages`);
       setMessages(res.data.messages);
@@ -26,9 +30,9 @@ export default function DiscussionForum({ eventId }) {
       setError(err.response?.data?.message || "Failed to load messages");
       setLoading(false);
     }
-  };
+  }, [eventId]);
 
-  const initializeSocket = () => {
+  const initializeSocket = useCallback(() => {
     const token = localStorage.getItem("token");
     
     socketRef.current = io(process.env.REACT_APP_API_URL || "http://localhost:5000", {
@@ -61,7 +65,7 @@ export default function DiscussionForum({ eventId }) {
         )
       );
     });
-  };
+  }, [eventId]);
 
   useEffect(() => {
     fetchMessages();
@@ -72,12 +76,7 @@ export default function DiscussionForum({ eventId }) {
         socketRef.current.disconnect();
       }
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [eventId]);
-
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  };
+  }, [eventId, fetchMessages, initializeSocket]);
 
   const handlePostMessage = async (e) => {
     e.preventDefault();

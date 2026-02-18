@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import api from "../api/axios";
 import "../App.css";
 
@@ -14,7 +14,7 @@ export default function PasswordResetManagement() {
   const [adminComment, setAdminComment] = useState("");
   const [generatedPassword, setGeneratedPassword] = useState(null);
 
-  const fetchRequests = async () => {
+  const fetchRequests = useCallback(async () => {
     try {
       const params = filterStatus !== "ALL" ? { status: filterStatus } : {};
       const res = await api.get("/password-reset/all", { params });
@@ -24,12 +24,11 @@ export default function PasswordResetManagement() {
       setError("Failed to load password reset requests");
       setLoading(false);
     }
-  };
+  }, [filterStatus]);
 
   useEffect(() => {
     fetchRequests();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filterStatus]);
+  }, [fetchRequests]);
 
   const handleApprove = async () => {
     if (!selectedRequest) return;
