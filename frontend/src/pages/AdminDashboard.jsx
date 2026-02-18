@@ -1,8 +1,10 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import api from "../api/axios";
 import "../App.css";
 
 export default function AdminDashboard() {
+  const navigate = useNavigate();
   const [form, setForm] = useState({
     email: "",
     name: "",
@@ -99,6 +101,20 @@ export default function AdminDashboard() {
   return (
     <div className="container">
       <h2>Admin Dashboard</h2>
+
+      {}
+      <div style={{ marginBottom: "30px" }}>
+        <button
+          className="btn"
+          onClick={() => navigate("/admin/password-resets")}
+          style={{
+            backgroundColor: "#f59e0b",
+            marginRight: "10px",
+          }}
+        >
+           Manage Password Resets
+        </button>
+      </div>
 
       <h3>Create Organizer</h3>
 

@@ -108,8 +108,6 @@ const registerForEvent = async (req, res) => {
         });
       }
 
-      variant.sold += quantity;
-      await event.save();
     }
 
     if (event.registrationLimit) {
@@ -133,6 +131,8 @@ const registerForEvent = async (req, res) => {
 
     if (event.type === "MERCH") {
       registrationData.merchDetails = { size, color, quantity };
+      registrationData.paymentStatus = "PENDING";
+      registrationData.orderSuccessful = false;
     }
 
     if (event.type === "NORMAL" && formResponses) {
@@ -142,53 +142,61 @@ const registerForEvent = async (req, res) => {
     const registration = await Registration.create(registrationData);
 
     let qrCodeDataUrl = null;
-    try {
-      const ticketData = createTicketData(registration, event);
-      qrCodeDataUrl = await generateQRCode(ticketData);
-    } catch (qrError) {
-      console.error("Error generating QR code:", qrError);
+    if (event.type === "NORMAL") {
+      try {
+        const ticketData = createTicketData(registration, event);
+        qrCodeDataUrl = await generateQRCode(ticketData);
+      } catch (qrError) {
+        console.error("Error generating QR code:", qrError);
+      }
     }
 
-    try {
-      const user = await User.findById(participantId);
-      const participant = await Participant.findOne({ user: participantId });
+    if (event.type === "NORMAL") {
+      try {
+        const user = await User.findById(participantId);
+        const participant = await Participant.findOne({ user: participantId });
 
-      const emailData = {
-        participantName: participant?.name || user.email.split("@")[0],
-        eventName: event.name,
-        eventDate: event.startDate 
-          ? new Date(event.startDate).toLocaleDateString("en-US", {
-              weekday: "long",
-              year: "numeric",
-              month: "long",
-              day: "numeric",
-            })
-          : "TBA",
-        eventTime: event.startDate
-          ? new Date(event.startDate).toLocaleTimeString("en-US", {
-              hour: "2-digit",
-              minute: "2-digit",
-            })
-          : "TBA",
-        eventLocation: event.location || "TBA",
-        ticketId: registration.ticketId,
-        qrCodeDataUrl,
-        eventType: event.type,
-        merchDetails: registration.merchDetails,
-      };
+        const emailData = {
+          participantName: participant?.name || user.email.split("@")[0],
+          eventName: event.name,
+          eventDate: event.startDate 
+            ? new Date(event.startDate).toLocaleDateString("en-US", {
+                weekday: "long",
+                year: "numeric",
+                month: "long",
+                day: "numeric",
+              })
+            : "TBA",
+          eventTime: event.startDate
+            ? new Date(event.startDate).toLocaleTimeString("en-US", {
+                hour: "2-digit",
+                minute: "2-digit",
+              })
+            : "TBA",
+          eventLocation: event.location || "TBA",
+          ticketId: registration.ticketId,
+          qrCodeDataUrl,
+          eventType: event.type,
+          merchDetails: registration.merchDetails,
+        };
 
-      await sendRegistrationEmail(user.email, emailData);
-      console.log(`Confirmation email sent to ${user.email}`);
-    } catch (emailError) {
-      console.error("Error sending confirmation email:", emailError);
+        await sendRegistrationEmail(user.email, emailData);
+        console.log(`Confirmation email sent to ${user.email}`);
+      } catch (emailError) {
+        console.error("Error sending confirmation email:", emailError);
+      }
     }
 
     res.status(201).json({
-      message: event.type === "MERCH" ? "Purchase successful" : "Registered successfully",
+      message: event.type === "MERCH" 
+        ? "Order placed successfully. Please upload payment proof to confirm your order." 
+        : "Registered successfully",
       ticketId: registration.ticketId,
       registrationId: registration._id,
       merchDetails: registration.merchDetails,
       qrCode: qrCodeDataUrl,
+      paymentStatus: event.type === "MERCH" ? "PENDING" : undefined,
+      requiresPaymentProof: event.type === "MERCH",
     });
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -200,7 +208,7 @@ const getMyRegistrations = async (req, res) => {
       participant: req.user.id,
       status: "REGISTERED",
     })
-      .populate("event", "name description startDate endDate organizer")
+      .populate("event", "name description startDate endDate organizer type registrationFee")
       .sort({ createdAt: -1 });
 
     res.json(registrations);
@@ -459,6 +467,241 @@ const getCalendarLinks = async (req, res) => {
   }
 };
 
+const uploadPaymentProof = async (req, res) => {
+  try {
+    const { registrationId } = req.params;
+    const { paymentProof } = req.body;
+
+    if (!paymentProof) {
+      return res.status(400).json({ message: "Payment proof is required" });
+    }
+
+    const registration = await Registration.findById(registrationId)
+      .populate("event");
+
+    if (!registration) {
+      return res.status(404).json({ message: "Registration not found" });
+    }
+    if (registration.participant.toString() !== req.user.id) {
+      return res.status(403).json({ message: "Not authorized" });
+    }
+    if (registration.event.type !== "MERCH") {
+      return res.status(400).json({ message: "Not a merchandise order" });
+    }
+    if (registration.paymentStatus !== "PENDING") {
+      return res.status(400).json({ 
+        message: `Cannot upload payment proof. Current status: ${registration.paymentStatus}` 
+      });
+    }
+
+    registration.paymentProof = paymentProof;
+    await registration.save();
+
+    res.json({ 
+      message: "Payment proof uploaded successfully. Your order is now pending approval.",
+      registration: {
+        _id: registration._id,
+        paymentStatus: registration.paymentStatus,
+        paymentProof: registration.paymentProof
+      }
+    });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+const getPendingMerchOrders = async (req, res) => {
+  try {
+    const organizerId = req.params.organizerId;
+
+    const events = await Event.find({ organizer: organizerId, type: "MERCH" });
+    const eventIds = events.map(e => e._id);
+
+    const pendingOrders = await Registration.find({
+      event: { $in: eventIds },
+      paymentStatus: { $in: ["PENDING", "APPROVED", "REJECTED"] }
+    })
+      .populate("participant", "email")
+      .populate("event", "name registrationFee")
+      .populate({
+        path: "participant",
+        populate: {
+          path: "user",
+          model: "User",
+          select: "email"
+        }
+      })
+      .sort({ createdAt: -1 });
+
+    const ordersWithDetails = await Promise.all(
+      pendingOrders.map(async (order) => {
+        const participant = await Participant.findOne({ user: order.participant });
+        return {
+          ...order.toObject(),
+          participantDetails: participant
+        };
+      })
+    );
+
+    res.json(ordersWithDetails);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+const approvePayment = async (req, res) => {
+  try {
+    const { registrationId } = req.params;
+
+    const registration = await Registration.findById(registrationId)
+      .populate("event")
+      .populate("participant");
+
+    if (!registration) {
+      return res.status(404).json({ message: "Registration not found" });
+    }
+
+    const event = registration.event;
+    if (event.organizer.toString() !== req.user.organizerId) {
+      return res.status(403).json({ message: "Not authorized" });
+    }
+
+    if (registration.paymentStatus !== "PENDING") {
+      return res.status(400).json({ 
+        message: `Cannot approve. Current status: ${registration.paymentStatus}` 
+      });
+    }
+
+    if (!registration.paymentProof) {
+      return res.status(400).json({ message: "No payment proof uploaded" });
+    }
+
+    const variant = event.merchVariants.find(
+      v => v.size === registration.merchDetails.size && 
+           v.color === registration.merchDetails.color
+    );
+
+    if (!variant) {
+      return res.status(400).json({ message: "Variant not found" });
+    }
+
+    const availableStock = variant.stock - variant.sold;
+    if (availableStock < registration.merchDetails.quantity) {
+      return res.status(400).json({ 
+        message: `Insufficient stock. Only ${availableStock} items available` 
+      });
+    }
+
+    variant.sold += registration.merchDetails.quantity;
+    await event.save();
+
+    registration.paymentStatus = "APPROVED";
+    registration.orderSuccessful = true;
+    registration.paymentApprovedBy = req.user.id;
+    registration.paymentApprovedAt = new Date();
+    await registration.save();
+
+    let qrCodeDataUrl = null;
+    try {
+      const ticketData = createTicketData(registration, event);
+      qrCodeDataUrl = await generateQRCode(ticketData);
+    } catch (qrError) {
+      console.error("Error generating QR code:", qrError);
+    }
+
+    try {
+      const user = await User.findById(registration.participant._id || registration.participant);
+      const participant = await Participant.findOne({ 
+        user: registration.participant._id || registration.participant 
+      });
+
+      const emailData = {
+        participantName: participant?.name || user.email.split("@")[0],
+        eventName: event.name,
+        eventDate: event.startDate 
+          ? new Date(event.startDate).toLocaleDateString("en-US", {
+              weekday: "long",
+              year: "numeric",
+              month: "long",
+              day: "numeric",
+            })
+          : "TBA",
+        eventTime: event.startDate
+          ? new Date(event.startDate).toLocaleTimeString("en-US", {
+              hour: "2-digit",
+              minute: "2-digit",
+            })
+          : "TBA",
+        eventLocation: event.location || "TBA",
+        ticketId: registration.ticketId,
+        qrCodeDataUrl,
+        eventType: event.type,
+        merchDetails: registration.merchDetails,
+      };
+
+      await sendRegistrationEmail(user.email, emailData);
+      console.log(`Order confirmation email sent to ${user.email}`);
+    } catch (emailError) {
+      console.error("Error sending confirmation email:", emailError);
+    }
+
+    res.json({ 
+      message: "Payment approved successfully. Order is now confirmed.",
+      registration: {
+        _id: registration._id,
+        paymentStatus: registration.paymentStatus,
+        orderSuccessful: registration.orderSuccessful,
+        qrCode: qrCodeDataUrl
+      }
+    });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+const rejectPayment = async (req, res) => {
+  try {
+    const { registrationId } = req.params;
+    const { reason } = req.body;
+
+    if (!reason) {
+      return res.status(400).json({ message: "Rejection reason is required" });
+    }
+
+    const registration = await Registration.findById(registrationId)
+      .populate("event");
+
+    if (!registration) {
+      return res.status(404).json({ message: "Registration not found" });
+    }
+
+    const event = registration.event;
+    if (event.organizer.toString() !== req.user.organizerId) {
+      return res.status(403).json({ message: "Not authorized" });
+    }
+
+    if (registration.paymentStatus !== "PENDING") {
+      return res.status(400).json({ 
+        message: `Cannot reject. Current status: ${registration.paymentStatus}` 
+      });
+    }
+
+    registration.paymentStatus = "REJECTED";
+    registration.paymentRejectionReason = reason;
+    registration.orderSuccessful = false;
+    await registration.save();
+
+    res.json({ 
+      message: "Payment rejected.",
+      registration: {
+        _id: registration._id,
+        paymentStatus: registration.paymentStatus,
+        paymentRejectionReason: registration.paymentRejectionReason
+      }
+    });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
 module.exports = { 
   registerForEvent, 
   getMyRegistrations, 
@@ -469,5 +712,9 @@ module.exports = {
   resendConfirmationEmail,
   exportToCalendar,
   exportBatchToCalendar,
-  getCalendarLinks
+  getCalendarLinks,
+  uploadPaymentProof,
+  getPendingMerchOrders,
+  approvePayment,
+  rejectPayment
 };

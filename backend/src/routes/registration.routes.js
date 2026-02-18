@@ -11,7 +11,11 @@ const {
   resendConfirmationEmail,
   exportToCalendar,
   exportBatchToCalendar,
-  getCalendarLinks
+  getCalendarLinks,
+  uploadPaymentProof,
+  getPendingMerchOrders,
+  approvePayment,
+  rejectPayment
 } = require("../controllers/registration.controller");
 const { requireAuth, requireRole } = require("../middleware/auth");
 
@@ -81,6 +85,34 @@ router.get(
   requireAuth,
   requireRole("PARTICIPANT"),
   getCalendarLinks
+);
+
+router.post(
+  "/payment-proof/:registrationId",
+  requireAuth,
+  requireRole("PARTICIPANT"),
+  uploadPaymentProof
+);
+
+router.get(
+  "/pending-orders/:organizerId",
+  requireAuth,
+  requireRole("ORGANIZER"),
+  getPendingMerchOrders
+);
+
+router.post(
+  "/approve-payment/:registrationId",
+  requireAuth,
+  requireRole("ORGANIZER"),
+  approvePayment
+);
+
+router.post(
+  "/reject-payment/:registrationId",
+  requireAuth,
+  requireRole("ORGANIZER"),
+  rejectPayment
 );
 
 module.exports = router;

@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import api from "../api/axios";
+import PasswordResetRequest from "../components/PasswordResetRequest";
 import "../App.css";
 
 export default function OrganizerProfile() {
@@ -278,6 +279,9 @@ export default function OrganizerProfile() {
           </div>
         </div>
       </div>
+
+      {}
+      <PasswordResetRequest />
     </div>
   );
 }

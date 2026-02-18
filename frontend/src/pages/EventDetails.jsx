@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import api from "../api/axios";
 import CalendarExport from "../components/CalendarExport";
+import DiscussionForum from "../components/DiscussionForum";
 import "../App.css";
 
 export default function EventDetails() {
@@ -868,7 +869,7 @@ export default function EventDetails() {
                 </div>
             )}
 
-            {/* Messages */}
+            {}
             {message && <div style={{ 
                 padding: "12px", 
                 backgroundColor: "#d1fae5", 
@@ -891,7 +892,7 @@ export default function EventDetails() {
                 {error}
             </div>}
 
-            {/* Action Buttons */}
+            {}
             <div style={{ display: "flex", gap: "10px", marginTop: "20px", flexWrap: "wrap" }}>
                 {role === "PARTICIPANT" && !isRegistered && (
                     <button 
@@ -970,6 +971,11 @@ export default function EventDetails() {
                     onClose={() => setShowCalendarExport(false)} 
                 />
             )}
+
+            {}
+            {(role === "PARTICIPANT" && isRegistered) || role === "ORGANIZER" ? (
+                <DiscussionForum eventId={eventId} />
+            ) : null}
         </div>
     );
 }

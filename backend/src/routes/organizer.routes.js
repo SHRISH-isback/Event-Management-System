@@ -19,6 +19,10 @@ router.get("/", async (req, res) => {
   }
 });
 
+router.get("/profile", requireAuth, requireRole(ORGANIZER), getProfile);
+router.put("/profile", requireAuth, requireRole(ORGANIZER), updateProfile);
+router.post("/test-webhook", requireAuth, requireRole(ORGANIZER), testWebhook);
+
 router.get("/:id", async (req, res) => {
   try {
     const organizer = await Organizer.findById(req.params.id)
@@ -33,9 +37,5 @@ router.get("/:id", async (req, res) => {
     res.status(500).json({ message: err.message });
   }
 });
-
-router.get("/profile/me", requireAuth, requireRole(ORGANIZER), getProfile);
-router.put("/profile", requireAuth, requireRole(ORGANIZER), updateProfile);
-router.post("/test-webhook", requireAuth, requireRole(ORGANIZER), testWebhook);
 
 module.exports = router;

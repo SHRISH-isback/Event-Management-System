@@ -2,12 +2,19 @@ const Event = require("../models/Event");
 const Organizer = require("../models/Organizer");
 const Registration = require("../models/Registration");
 const ParticipantProfile = require("../models/Participant");
+const { postEventToDiscord } = require("./organizer.controller");
 
 const createEvent = async (req, res) => {
   try {
+    const organizer = await Organizer.findOne({ user: req.user.id });
+    
+    if (!organizer) {
+      return res.status(404).json({ message: "Organizer profile not found" });
+    }
+
     const event = await Event.create({
       ...req.body,
-      organizer: req.user.id,
+      organizer: organizer._id,
       status: "DRAFT",
     });
 
@@ -26,6 +33,14 @@ const publishEvent = async (req, res) => {
 
     event.status = "PUBLISHED";
     await event.save();
+    await postEventToDiscord(event.organizer, {
+      name: event.name,
+      description: event.description,
+      startDate: event.startDate,
+      endDate: event.endDate,
+      type: event.type,
+      registrationFee: event.registrationFee,
+    });
 
     return res.json({ message: "Event published" });
   } catch (err) {
@@ -35,7 +50,13 @@ const publishEvent = async (req, res) => {
 
 const getMyEvents = async (req, res) => {
   try {
-    const events = await Event.find({ organizer: req.user.id })
+    const organizer = await Organizer.findOne({ user: req.user.id });
+    
+    if (!organizer) {
+      return res.status(404).json({ message: "Organizer profile not found" });
+    }
+
+    const events = await Event.find({ organizer: organizer._id })
       .sort({ createdAt: -1 });
 
     res.json(events);

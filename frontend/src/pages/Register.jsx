@@ -59,7 +59,6 @@ export default function Register() {
       setSuccess("Registration successful! Redirecting to preferences...");
       
       setTimeout(() => {
-        // Store token and navigate to onboarding
         localStorage.setItem("token", response.data.token);
         localStorage.setItem("role", response.data.role);
         navigate("/onboarding");

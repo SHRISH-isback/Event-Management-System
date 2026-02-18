@@ -68,12 +68,22 @@ export default function OrganizerDashboard() {
           )}
 
           {event.status === "PUBLISHED" && (
-            <button
-              className="btn"
-              onClick={() => viewRegistrations(event._id)}
-            >
-              View Registrations
-            </button>
+            <>
+              <button
+                className="btn"
+                style={{ marginRight: "10px" }}
+                onClick={() => viewRegistrations(event._id)}
+              >
+                View Registrations
+              </button>
+              <button
+                className="btn"
+                onClick={() => navigate(`/organizer/event/${event._id}/attendance`)}
+                style={{ backgroundColor: "#10b981" }}
+              >
+                 Attendance Tracking
+              </button>
+            </>
           )}
         </div>
       ))}

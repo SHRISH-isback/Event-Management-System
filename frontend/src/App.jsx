@@ -15,6 +15,9 @@ import Profile from "./pages/Profile";
 import OrganizerProfile from "./pages/OrganizerProfile";
 import Clubs from "./pages/Clubs";
 import OrganizerDetail from "./pages/OrganizerDetail";
+import AttendanceDashboard from "./pages/AttendanceDashboard";
+import PasswordResetManagement from "./pages/PasswordResetManagement";
+import MerchandiseOrders from "./pages/MerchandiseOrders";
 
 function App() {
   return (
@@ -146,6 +149,30 @@ function App() {
         />
         
         <Route
+          path="/organizer/event/:eventId/attendance"
+          element={
+            <ProtectedRoute>
+              <>
+                <Navbar />
+                <AttendanceDashboard />
+              </>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/organizer/merchandise-orders"
+          element={
+            <ProtectedRoute>
+              <>
+                <Navbar />
+                <MerchandiseOrders />
+              </>
+            </ProtectedRoute>
+          }
+        />
+        
+        <Route
           path="/clubs"
           element={
             <ProtectedRoute>
@@ -164,6 +191,18 @@ function App() {
               <>
                 <Navbar />
                 <OrganizerDetail />
+              </>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/admin/password-resets"
+          element={
+            <ProtectedRoute>
+              <>
+                <Navbar />
+                <PasswordResetManagement />
               </>
             </ProtectedRoute>
           }

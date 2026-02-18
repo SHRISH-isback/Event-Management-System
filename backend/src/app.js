@@ -7,6 +7,9 @@ const eventRoutes = require("./routes/event.routes");
 const registrationRoutes = require("./routes/registration.routes");
 const participantRoutes = require("./routes/participant.routes");
 const organizerRoutes = require("./routes/organizer.routes");
+const attendanceRoutes = require("./routes/attendance.routes");
+const forumRoutes = require("./routes/forum.routes");
+const passwordResetRoutes = require("./routes/passwordReset.routes");
 
 const app = express();
 
@@ -36,6 +39,9 @@ app.use("/api/events", eventRoutes);
 app.use("/api/registrations", registrationRoutes);
 app.use("/api/participants", participantRoutes);
 app.use("/api/organizers", organizerRoutes);
+app.use("/api/attendance", attendanceRoutes);
+app.use("/api/forum", forumRoutes);
+app.use("/api/password-reset", passwordResetRoutes);
 
 //TEMP TEST ROUTE
 app.get("/api/protected", requireAuth, (req, res) => {

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import api from "../api/axios";
 import CalendarExport from "../components/CalendarExport";
 import BatchCalendarExport from "../components/BatchCalendarExport";
+import PaymentProofUpload from "../components/PaymentProofUpload";
 import "../App.css";
 
 export default function MyEvents() {
@@ -15,11 +16,14 @@ export default function MyEvents() {
   const [showCalendarExport, setShowCalendarExport] = useState(false);
   const [calendarRegistration, setCalendarRegistration] = useState(null);
   const [showBatchCalendarExport, setShowBatchCalendarExport] = useState(false);
+  const [showPaymentUpload, setShowPaymentUpload] = useState(false);
+  const [paymentRegistration, setPaymentRegistration] = useState(null);
 
   useEffect(() => {
     const fetchMyEvents = async () => {
       try {
         const res = await api.get("/registrations/my");
+        console.log("Registrations data:", res.data);
         setRegistrations(res.data);
       } catch (err) {
         console.error("Failed to load registrations");
@@ -90,6 +94,20 @@ export default function MyEvents() {
     }
     
     setShowBatchCalendarExport(true);
+  };
+
+  const handleUploadPaymentProof = (registration) => {
+    setPaymentRegistration(registration);
+    setShowPaymentUpload(true);
+  };
+
+  const handlePaymentUploadSuccess = async () => {
+    try {
+      const res = await api.get("/registrations/my");
+      setRegistrations(res.data);
+    } catch (err) {
+      console.error("Failed to refresh registrations");
+    }
   };
 
   const getTabCount = (tab) => {
@@ -239,7 +257,18 @@ export default function MyEvents() {
         </div>
       )}
 
-      {filteredRegistrations.map((reg) => (
+      {filteredRegistrations.map((reg) => {
+        if (reg.event.type === "MERCH") {
+          console.log("Merchandise registration:", {
+            ticketId: reg.ticketId,
+            eventName: reg.event.name,
+            paymentStatus: reg.paymentStatus,
+            paymentProof: reg.paymentProof ? "exists" : "null",
+            merchDetails: reg.merchDetails
+          });
+        }
+        
+        return (
         <div className="card" key={reg._id} style={{ position: "relative" }}>
           {}
           <div style={{ position: "absolute", top: "15px", right: "15px" }}>
@@ -338,35 +367,126 @@ export default function MyEvents() {
           )}
 
           {}
+          {reg.event.type === "MERCH" && reg.paymentStatus && (
+            <div
+              style={{
+                padding: "15px",
+                backgroundColor:
+                  reg.paymentStatus === "APPROVED"
+                    ? "#d4edda"
+                    : reg.paymentStatus === "REJECTED"
+                    ? "#f8d7da"
+                    : "#fff3cd",
+                borderRadius: "8px",
+                marginTop: "15px",
+                border: `1px solid ${
+                  reg.paymentStatus === "APPROVED"
+                    ? "#28a745"
+                    : reg.paymentStatus === "REJECTED"
+                    ? "#dc3545"
+                    : "#ffc107"
+                }`,
+              }}
+            >
+              <p style={{ margin: 0, fontWeight: "bold" }}>
+                Payment Status:{" "}
+                <span
+                  style={{
+                    color:
+                      reg.paymentStatus === "APPROVED"
+                        ? "#155724"
+                        : reg.paymentStatus === "REJECTED"
+                        ? "#721c24"
+                        : "#856404",
+                  }}
+                >
+                  {reg.paymentStatus}
+                </span>
+              </p>
+              {reg.paymentStatus === "PENDING" && !reg.paymentProof && (
+                <p style={{ margin: "5px 0 0 0", fontSize: "14px" }}>
+                  Please upload payment proof to confirm your order.
+                </p>
+              )}
+              {reg.paymentStatus === "PENDING" && reg.paymentProof && (
+                <p style={{ margin: "5px 0 0 0", fontSize: "14px" }}>
+                  Payment proof uploaded. Awaiting organizer approval.
+                </p>
+              )}
+              {reg.paymentStatus === "REJECTED" && reg.paymentRejectionReason && (
+                <p style={{ margin: "5px 0 0 0", fontSize: "14px" }}>
+                  <strong>Reason:</strong> {reg.paymentRejectionReason}
+                </p>
+              )}
+              {reg.paymentStatus === "APPROVED" && (
+                <p style={{ margin: "5px 0 0 0", fontSize: "14px" }}>
+                  Your order has been confirmed! QR code is available below.
+                </p>
+              )}
+            </div>
+          )}
+
+          {}
           {reg.status === "REGISTERED" && (
             <div style={{ display: "flex", gap: "10px", marginTop: "15px" }}>
-              <button
-                onClick={() => handleViewQRCode(reg)}
-                disabled={resendLoading}
-                style={{
-                  flex: 1,
-                  padding: "12px 20px",
-                  backgroundColor: "#4f46e5",
-                  color: "white",
-                  border: "none",
-                  borderRadius: "8px",
-                  cursor: resendLoading ? "not-allowed" : "pointer",
-                  fontSize: "14px",
-                  fontWeight: "600",
-                  opacity: resendLoading ? 0.6 : 1,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  gap: "8px"
-                }}
-              >
-                {resendLoading ? "Loading..." : (
-                  <>
-                    <span></span>
-                    View QR Code
-                  </>
-                )}
-              </button>
+              {/* Show QR button only for normal events or approved merchandise */}
+              {(reg.event.type === "NORMAL" || 
+                (reg.event.type === "MERCH" && reg.paymentStatus === "APPROVED")) && (
+                <button
+                  onClick={() => handleViewQRCode(reg)}
+                  disabled={resendLoading}
+                  style={{
+                    flex: 1,
+                    padding: "12px 20px",
+                    backgroundColor: "#4f46e5",
+                    color: "white",
+                    border: "none",
+                    borderRadius: "8px",
+                    cursor: resendLoading ? "not-allowed" : "pointer",
+                    fontSize: "14px",
+                    fontWeight: "600",
+                    opacity: resendLoading ? 0.6 : 1,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: "8px"
+                  }}
+                >
+                  {resendLoading ? "Loading..." : (
+                    <>
+                      <span></span>
+                      View QR Code
+                    </>
+                  )}
+                </button>
+              )}
+
+              {/* Show upload payment proof button for pending merchandise orders */}
+              {reg.event.type === "MERCH" && 
+               reg.paymentStatus === "PENDING" && 
+               !reg.paymentProof && (
+                <button
+                  onClick={() => handleUploadPaymentProof(reg)}
+                  style={{
+                    flex: 1,
+                    padding: "12px 20px",
+                    backgroundColor: "#ffc107",
+                    color: "#000",
+                    border: "none",
+                    borderRadius: "8px",
+                    cursor: "pointer",
+                    fontSize: "14px",
+                    fontWeight: "600",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: "8px"
+                  }}
+                >
+                  <span>📤</span>
+                  Upload Payment Proof
+                </button>
+              )}
               
               {new Date(reg.event.startDate) >= new Date() && (
                 <button
@@ -404,7 +524,8 @@ export default function MyEvents() {
             Registered on: {new Date(reg.createdAt).toLocaleString()}
           </p>
         </div>
-      ))}
+        );
+      })}
 
       {}
       {showQRModal && qrCodeData && selectedRegistration && (
@@ -601,6 +722,17 @@ export default function MyEvents() {
             (reg) => reg.status === "REGISTERED" && new Date(reg.event.startDate) >= new Date()
           )}
           onClose={() => setShowBatchCalendarExport(false)}
+        />
+      )}
+
+      {showPaymentUpload && paymentRegistration && (
+        <PaymentProofUpload
+          registration={paymentRegistration}
+          onSuccess={handlePaymentUploadSuccess}
+          onClose={() => {
+            setShowPaymentUpload(false);
+            setPaymentRegistration(null);
+          }}
         />
       )}
     </div>
