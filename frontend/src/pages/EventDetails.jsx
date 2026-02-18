@@ -28,6 +28,7 @@ export default function EventDetails() {
     const [formResponses, setFormResponses] = useState({});
     const [formErrors, setFormErrors] = useState({});
     const [showCalendarExport, setShowCalendarExport] = useState(false);
+    const [showMerchPrompt, setShowMerchPrompt] = useState(false);
 
     useEffect(() => {
         const fetchEvent = async () => {
@@ -63,8 +64,8 @@ export default function EventDetails() {
         setError("");
         setMessage("");
 
-        if (event.type === "MERCH" && !showPurchaseModal) {
-            setShowPurchaseModal(true);
+        if (event.type === "MERCH" && !showMerchPrompt && !showPurchaseModal) {
+            setShowMerchPrompt(true);
             return;
         }
 
@@ -161,7 +162,7 @@ export default function EventDetails() {
         if (isRegistered) return "Already Registered";
         if (isDeadlinePassed()) return "Registration Closed";
         if (isEventFull()) return "Event Full";
-        if (event?.type === "MERCH") return "Purchase";
+        if (event?.type === "MERCH") return "Register for Event";
         return "Register Now";
     };
 
@@ -387,6 +388,96 @@ export default function EventDetails() {
                                 })}
                             </tbody>
                         </table>
+                    </div>
+                </div>
+            )}
+
+            {}
+            {showMerchPrompt && event.type === "MERCH" && (
+                <div style={{
+                    position: "fixed",
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    backgroundColor: "rgba(0, 0, 0, 0.5)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    zIndex: 1000,
+                    padding: "20px"
+                }}>
+                    <div style={{
+                        backgroundColor: "white",
+                        padding: "40px",
+                        borderRadius: "12px",
+                        maxWidth: "500px",
+                        width: "100%",
+                        textAlign: "center"
+                    }}>
+                        <div style={{
+                            fontSize: "48px",
+                            marginBottom: "20px"
+                        }}>
+                            🛍️
+                        </div>
+                        
+                        <h3 style={{ marginTop: 0, marginBottom: "15px" }}>
+                            {event.name}
+                        </h3>
+                        
+                        <p style={{ 
+                            fontSize: "16px", 
+                            color: "#666", 
+                            marginBottom: "25px",
+                            lineHeight: "1.6"
+                        }}>
+                            This is a merchandise event. Would you like to purchase merchandise?
+                        </p>
+
+                        <div style={{
+                            padding: "15px",
+                            backgroundColor: "#f0fdf4",
+                            borderRadius: "8px",
+                            marginBottom: "25px",
+                            textAlign: "left"
+                        }}>
+                            <p style={{ margin: "5px 0", fontSize: "14px" }}>
+                                <b>Price:</b> ₹{event.registrationFee}
+                            </p>
+                            <p style={{ margin: "5px 0", fontSize: "14px" }}>
+                                <b>Purchase Limit:</b> {event.purchaseLimit} item(s) per person
+                            </p>
+                        </div>
+
+                        <div style={{ display: "flex", gap: "10px" }}>
+                            <button
+                                className="btn"
+                                onClick={() => {
+                                    setShowMerchPrompt(false);
+                                    setShowPurchaseModal(true);
+                                }}
+                                style={{
+                                    flex: 1,
+                                    backgroundColor: "#10b981"
+                                }}
+                            >
+                                Yes, Purchase Merchandise
+                            </button>
+                            <button
+                                className="btn"
+                                onClick={() => {
+                                    setShowMerchPrompt(false);
+                                    setError("");
+                                }}
+                                style={{
+                                    flex: 1,
+                                    backgroundColor: "#6b7280"
+                                }}
+                            >
+                                No, Maybe Later
+                            </button>
+                        </div>
                     </div>
                 </div>
             )}

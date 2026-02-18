@@ -1,8 +1,18 @@
 const nodemailer = require("nodemailer");
 
 const createTransporter = () => {
+  console.log('📧 Creating email transporter...');
+  console.log('Email config:', {
+    service: process.env.EMAIL_SERVICE,
+    host: process.env.EMAIL_HOST,
+    port: process.env.EMAIL_PORT,
+    user: process.env.EMAIL_USER,
+    hasPassword: !!process.env.EMAIL_PASSWORD,
+    from: process.env.EMAIL_FROM
+  });
   
   if (process.env.EMAIL_SERVICE === "gmail") {
+    console.log('Using Gmail service');
     return nodemailer.createTransport({
       service: "gmail",
       auth: {
@@ -12,6 +22,7 @@ const createTransporter = () => {
     });
   }
 
+  console.log('Using custom SMTP (Ethereal)');
   return nodemailer.createTransport({
     host: process.env.EMAIL_HOST || "smtp.ethereal.email",
     port: process.env.EMAIL_PORT || 587,

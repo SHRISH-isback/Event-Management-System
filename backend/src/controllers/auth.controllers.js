@@ -7,12 +7,16 @@ const register = async (req, res) => {
   try {
     const { email, password, participantType, firstName, lastName, contactNumber, collegeOrOrg } = req.body;
     
-    if (!email || !password || !participantType || !firstName || !lastName || !contactNumber || !collegeOrOrg) {
+    if (!email || !password || !participantType || !firstName || !lastName || !contactNumber) {
       return res.status(400).json({ message: "Missing required fields" });
     }
     
-    if (participantType === "IIIT" && !email.endsWith("@iiit.ac.in")) {
-      return res.status(400).json({ message: "Invalid IIIT email" });
+    if (participantType === "NON_IIIT" && !collegeOrOrg) {
+      return res.status(400).json({ message: "Organization name is required for external participants" });
+    }
+    
+    if (participantType === "IIIT" && !email.endsWith("@iiit.ac.in") && !email.endsWith("@research.iiit.ac.in")) {
+      return res.status(400).json({ message: "IIIT participants must use @iiit.ac.in or @research.iiit.ac.in email" });
     }
     
     const existingUser = await User.findOne({ email });
@@ -32,7 +36,7 @@ const register = async (req, res) => {
       firstName,
       lastName,
       contactNumber,
-      collegeOrOrg,
+      collegeOrOrg: participantType === "IIIT" ? "IIIT Hyderabad" : collegeOrOrg,
     });
 
     const token = jwt.sign(

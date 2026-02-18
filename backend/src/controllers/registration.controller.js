@@ -181,8 +181,16 @@ const registerForEvent = async (req, res) => {
         };
 
         await sendRegistrationEmail(user.email, emailData);
+        console.log(`✅ Registration email sent to: ${user.email}`);
       } catch (emailError) {
-        // Email sending failed
+        console.error('❌ Failed to send registration email:', emailError.message);
+        console.error('Email config check:', {
+          host: process.env.EMAIL_HOST,
+          port: process.env.EMAIL_PORT,
+          user: process.env.EMAIL_USER,
+          hasPassword: !!process.env.EMAIL_PASSWORD
+        });
+        // Email sending failed but registration continues
       }
     }
 

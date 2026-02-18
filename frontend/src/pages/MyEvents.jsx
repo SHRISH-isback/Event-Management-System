@@ -23,10 +23,8 @@ export default function MyEvents() {
     const fetchMyEvents = async () => {
       try {
         const res = await api.get("/registrations/my");
-        console.log("Registrations data:", res.data);
         setRegistrations(res.data);
       } catch (err) {
-        console.error("Failed to load registrations");
       } finally {
         setLoading(false);
       }
@@ -84,7 +82,7 @@ export default function MyEvents() {
   };
 
   const handleBatchCalendarExport = () => {
-    const eligibleRegistrations = filteredRegistrations.filter(
+    const eligibleRegistrations = upcomingEvents.filter(
       reg => reg.status === "REGISTERED" && new Date(reg.event.startDate) >= new Date()
     );
     
@@ -106,7 +104,6 @@ export default function MyEvents() {
       const res = await api.get("/registrations/my");
       setRegistrations(res.data);
     } catch (err) {
-      console.error("Failed to refresh registrations");
     }
   };
 
@@ -258,16 +255,6 @@ export default function MyEvents() {
       )}
 
       {filteredRegistrations.map((reg) => {
-        if (reg.event.type === "MERCH") {
-          console.log("Merchandise registration:", {
-            ticketId: reg.ticketId,
-            eventName: reg.event.name,
-            paymentStatus: reg.paymentStatus,
-            paymentProof: reg.paymentProof ? "exists" : "null",
-            merchDetails: reg.merchDetails
-          });
-        }
-        
         return (
         <div className="card" key={reg._id} style={{ position: "relative" }}>
           {}

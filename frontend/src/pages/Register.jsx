@@ -20,8 +20,13 @@ export default function Register() {
     setError("");
     setSuccess("");
 
-    if (!email || !password || !confirmPassword || !firstName || !lastName || !contactNumber || !collegeOrOrg) {
+    if (!email || !password || !confirmPassword || !firstName || !lastName || !contactNumber) {
       setError("All fields are required");
+      return;
+    }
+
+    if (participantType === "NON_IIIT" && !collegeOrOrg) {
+      setError("Organization name is required for external participants");
       return;
     }
 
@@ -34,9 +39,8 @@ export default function Register() {
       setError("Password must be at least 6 characters");
       return;
     }
-
-    if (participantType === "IIIT" && !email.endsWith("@iiit.ac.in")) {
-      setError("IIIT participants must use an @iiit.ac.in email");
+    if (participantType === "IIIT" && !email.endsWith("@iiit.ac.in") && !email.endsWith("@research.iiit.ac.in")) {
+      setError("IIIT participants must use @iiit.ac.in or @research.iiit.ac.in email");
       return;
     }
 
@@ -107,13 +111,31 @@ export default function Register() {
         onChange={(e) => setContactNumber(e.target.value)}
       />
 
-      <input
-        className="input"
-        placeholder="College / Organization Name"
-        type="text"
-        value={collegeOrOrg}
-        onChange={(e) => setCollegeOrOrg(e.target.value)}
-      />
+      <div style={{ marginBottom: "15px" }}>
+        <label style={{ marginRight: "10px" }}>
+          <b>Participant Type:</b>
+        </label>
+        <select
+          className="input"
+          value={participantType}
+          onChange={(e) => setParticipantType(e.target.value)}
+          style={{ width: "auto", display: "inline-block" }}
+        >
+          <option value="IIIT">IIIT Student</option>
+          <option value="NON_IIIT">External Participant</option>
+        </select>
+      </div>
+
+      {}
+      {participantType === "NON_IIIT" && (
+        <input
+          className="input"
+          placeholder="College / Organization Name *"
+          type="text"
+          value={collegeOrOrg}
+          onChange={(e) => setCollegeOrOrg(e.target.value)}
+        />
+      )}
 
       <input
         className="input"
@@ -131,20 +153,19 @@ export default function Register() {
         onChange={(e) => setConfirmPassword(e.target.value)}
       />
 
-      <div style={{ marginBottom: "15px" }}>
-        <label style={{ marginRight: "10px" }}>
-          <b>Participant Type:</b>
-        </label>
-        <select
-          className="input"
-          value={participantType}
-          onChange={(e) => setParticipantType(e.target.value)}
-          style={{ width: "auto", display: "inline-block" }}
-        >
-          <option value="IIIT">IIIT Student</option>
-          <option value="NON_IIIT">External Participant</option>
-        </select>
-      </div>
+      {participantType === "IIIT" && (
+        <p style={{ 
+          fontSize: "14px", 
+          color: "#666", 
+          marginTop: "10px",
+          padding: "10px",
+          backgroundColor: "#f0f9ff",
+          borderRadius: "5px",
+          border: "1px solid #bfdbfe"
+        }}>
+          ℹ️ Use your IIIT email (@iiit.ac.in or @research.iiit.ac.in)
+        </p>
+      )}
 
       <button className="btn" onClick={handleRegister}>
         Register
