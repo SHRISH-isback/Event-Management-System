@@ -60,11 +60,11 @@ export default function EventDetails() {
         fetchEvent();
     }, [eventId, role]);
 
-    const handleRegister = async () => {
+    const handleRegister = async (skipMerch = false) => {
         setError("");
         setMessage("");
 
-        if (event.type === "MERCH" && !showMerchPrompt && !showPurchaseModal) {
+        if (event.type === "MERCH" && !showMerchPrompt && !showPurchaseModal && !skipMerch) {
             setShowMerchPrompt(true);
             return;
         }
@@ -77,7 +77,7 @@ export default function EventDetails() {
         try {
             const requestData = {};
 
-            if (event.type === "MERCH") {
+            if (event.type === "MERCH" && !skipMerch) {
                 if (!selectedSize || !selectedColor) {
                     setError("Please select both size and color");
                     return;
@@ -105,9 +105,16 @@ export default function EventDetails() {
 
             const res = await api.post(`/registrations/${eventId}`, requestData);
             
-            const successMsg = event.type === "MERCH" 
-                ? `Purchase successful! Your Order ID: ${res.data.ticketId}\n${quantity} × ${selectedSize} ${selectedColor}`
-                : `Registered successfully! Your Ticket ID: ${res.data.ticketId}`;
+            let successMsg;
+            if (event.type === "MERCH") {
+                if (skipMerch) {
+                    successMsg = `Registered successfully! Your Ticket ID: ${res.data.ticketId}\nYou can purchase merchandise later.`;
+                } else {
+                    successMsg = `Purchase successful! Your Order ID: ${res.data.ticketId}\n${quantity} × ${selectedSize} ${selectedColor}`;
+                }
+            } else {
+                successMsg = `Registered successfully! Your Ticket ID: ${res.data.ticketId}`;
+            }
             
             setMessage(successMsg);
             setIsRegistered(true);
@@ -116,6 +123,7 @@ export default function EventDetails() {
             setTicketId(res.data.ticketId);
             setShowPurchaseModal(false);
             setShowCustomFormModal(false);
+            setShowMerchPrompt(false);
             
             if (res.data.qrCode) {
                 setQrCodeData(res.data.qrCode);
@@ -337,7 +345,7 @@ export default function EventDetails() {
                 )}
             </div>
 
-            {/* Merchandise Stock Information */}
+            {}
             {event.type === "MERCH" && event.merchVariants && (
                 <div style={{
                     padding: "20px",
@@ -468,7 +476,7 @@ export default function EventDetails() {
                                 className="btn"
                                 onClick={() => {
                                     setShowMerchPrompt(false);
-                                    setError("");
+                                    handleRegister(true);
                                 }}
                                 style={{
                                     flex: 1,

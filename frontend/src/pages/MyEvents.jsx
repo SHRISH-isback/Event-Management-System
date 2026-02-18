@@ -18,13 +18,18 @@ export default function MyEvents() {
   const [showBatchCalendarExport, setShowBatchCalendarExport] = useState(false);
   const [showPaymentUpload, setShowPaymentUpload] = useState(false);
   const [paymentRegistration, setPaymentRegistration] = useState(null);
+  const [error, setError] = useState("");
 
   useEffect(() => {
     const fetchMyEvents = async () => {
       try {
         const res = await api.get("/registrations/my");
+        console.log('Fetched registrations:', res.data);
         setRegistrations(res.data);
       } catch (err) {
+        console.error('Error fetching registrations:', err);
+        console.error('Response:', err.response);
+        setError(err.response?.data?.message || "Failed to load your events");
       } finally {
         setLoading(false);
       }
@@ -37,25 +42,37 @@ export default function MyEvents() {
     return <div className="container">Loading your events...</div>;
   }
 
-  const now = new Date();
+  if (error) {
+    return (
+      <div className="container">
+        <p className="error">{error}</p>
+        <button className="btn" onClick={() => window.location.reload()}>
+          Retry
+        </button>
+      </div>
+    );
+  }
 
-  const upcomingEvents = registrations.filter(
+  const now = new Date();
+  const validRegistrations = registrations.filter(reg => reg.event);
+
+  const upcomingEvents = validRegistrations.filter(
     (reg) => reg.status === "REGISTERED" && new Date(reg.event.startDate) >= now
   );
 
-  const normalEvents = registrations.filter(
+  const normalEvents = validRegistrations.filter(
     (reg) => reg.status === "REGISTERED" && reg.event.type === "NORMAL"
   );
 
-  const merchandiseEvents = registrations.filter(
+  const merchandiseEvents = validRegistrations.filter(
     (reg) => reg.status === "REGISTERED" && reg.event.type === "MERCH"
   );
 
-  const completedEvents = registrations.filter(
+  const completedEvents = validRegistrations.filter(
     (reg) => reg.status === "REGISTERED" && new Date(reg.event.endDate) < now
   );
 
-  const cancelledEvents = registrations.filter(
+  const cancelledEvents = validRegistrations.filter(
     (reg) => reg.status === "CANCELLED"
   );
 

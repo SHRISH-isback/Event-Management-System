@@ -79,35 +79,36 @@ const registerForEvent = async (req, res) => {
     }
 
     if (event.type === "MERCH") {
-      if (!size || !color || !quantity) {
-        return res.status(400).json({ 
-          message: "Size, color, and quantity are required for merchandise events" 
-        });
+      if (size || color || quantity) {
+        if (!size || !color || !quantity) {
+          return res.status(400).json({ 
+            message: "Size, color, and quantity are required when purchasing merchandise" 
+          });
+        }
+
+        if (quantity > event.purchaseLimit) {
+          return res.status(400).json({ 
+            message: `Maximum purchase limit is ${event.purchaseLimit} items` 
+          });
+        }
+
+        const variant = event.merchVariants.find(
+          v => v.size === size && v.color === color
+        );
+
+        if (!variant) {
+          return res.status(400).json({ 
+            message: "Selected size and color combination is not available" 
+          });
+        }
+
+        const availableStock = variant.stock - variant.sold;
+        if (availableStock < quantity) {
+          return res.status(400).json({ 
+            message: `Only ${availableStock} items available in stock` 
+          });
+        }
       }
-
-      if (quantity > event.purchaseLimit) {
-        return res.status(400).json({ 
-          message: `Maximum purchase limit is ${event.purchaseLimit} items` 
-        });
-      }
-
-      const variant = event.merchVariants.find(
-        v => v.size === size && v.color === color
-      );
-
-      if (!variant) {
-        return res.status(400).json({ 
-          message: "Selected size and color combination is not available" 
-        });
-      }
-
-      const availableStock = variant.stock - variant.sold;
-      if (availableStock < quantity) {
-        return res.status(400).json({ 
-          message: `Only ${availableStock} items available in stock` 
-        });
-      }
-
     }
 
     if (event.registrationLimit) {
@@ -129,7 +130,7 @@ const registerForEvent = async (req, res) => {
       ticketId,
     };
 
-    if (event.type === "MERCH") {
+    if (event.type === "MERCH" && size && color && quantity) {
       registrationData.merchDetails = { size, color, quantity };
       registrationData.paymentStatus = "PENDING";
       registrationData.orderSuccessful = false;
@@ -142,16 +143,15 @@ const registerForEvent = async (req, res) => {
     const registration = await Registration.create(registrationData);
 
     let qrCodeDataUrl = null;
-    if (event.type === "NORMAL") {
+    if (event.type === "NORMAL" || (event.type === "MERCH" && (!size || !color))) {
       try {
         const ticketData = createTicketData(registration, event);
         qrCodeDataUrl = await generateQRCode(ticketData);
       } catch (qrError) {
-        // QR code generation failed
       }
     }
 
-    if (event.type === "NORMAL") {
+    if (event.type === "NORMAL" || (event.type === "MERCH" && (!size || !color))) {
       try {
         const user = await User.findById(participantId);
         const participant = await Participant.findOne({ user: participantId });
@@ -190,20 +190,22 @@ const registerForEvent = async (req, res) => {
           user: process.env.EMAIL_USER,
           hasPassword: !!process.env.EMAIL_PASSWORD
         });
-        // Email sending failed but registration continues
       }
     }
 
+    let responseMessage = "Registered successfully";
+    if (event.type === "MERCH" && size && color && quantity) {
+      responseMessage = "Order placed successfully. Please upload payment proof to confirm your order.";
+    }
+
     res.status(201).json({
-      message: event.type === "MERCH" 
-        ? "Order placed successfully. Please upload payment proof to confirm your order." 
-        : "Registered successfully",
+      message: responseMessage,
       ticketId: registration.ticketId,
       registrationId: registration._id,
       merchDetails: registration.merchDetails,
       qrCode: qrCodeDataUrl,
-      paymentStatus: event.type === "MERCH" ? "PENDING" : undefined,
-      requiresPaymentProof: event.type === "MERCH",
+      paymentStatus: (event.type === "MERCH" && size && color && quantity) ? "PENDING" : undefined,
+      requiresPaymentProof: (event.type === "MERCH" && size && color && quantity),
     });
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -211,6 +213,9 @@ const registerForEvent = async (req, res) => {
 };
 const getMyRegistrations = async (req, res) => {
   try {
+    console.log('Fetching registrations for user:', req.user.id);
+    console.log('User role:', req.user.role);
+    
     const registrations = await Registration.find({
       participant: req.user.id,
       status: "REGISTERED",
@@ -218,8 +223,10 @@ const getMyRegistrations = async (req, res) => {
       .populate("event", "name description startDate endDate organizer type registrationFee")
       .sort({ createdAt: -1 });
 
+    console.log(`Found ${registrations.length} registrations`);
     res.json(registrations);
   } catch (err) {
+    console.error('Error fetching registrations:', err);
     res.status(500).json({ message: err.message });
   }
 };
