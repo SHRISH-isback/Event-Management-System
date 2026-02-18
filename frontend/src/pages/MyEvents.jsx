@@ -81,13 +81,22 @@ export default function MyEvents() {
     setResendLoading(true);
     
     try {
+      console.log('Fetching QR code for registration:', registration._id);
       const res = await api.post(`/registrations/resend/${registration._id}`);
+      console.log('QR code response:', res.data);
+      
       if (res.data.qrCode) {
         setQrCodeData(res.data.qrCode);
         setShowQRModal(true);
+      } else {
+        alert("QR code not available for this registration");
       }
     } catch (err) {
-      alert(err.response?.data?.message || "Failed to retrieve QR code");
+      console.error('Error fetching QR code:', err);
+      console.error('Error response:', err.response);
+      
+      const errorMessage = err.response?.data?.message || "Failed to retrieve QR code";
+      alert(errorMessage);
     } finally {
       setResendLoading(false);
     }
@@ -433,11 +442,9 @@ export default function MyEvents() {
           {}
           {reg.status === "REGISTERED" && (
             <div style={{ display: "flex", gap: "10px", marginTop: "15px" }}>
-              {/* Show QR button only for normal events or approved merchandise */}
-              {(reg.event.type === "NORMAL" || 
-                (reg.event.type === "MERCH" && reg.paymentStatus === "APPROVED")) && (
-                <button
-                  onClick={() => handleViewQRCode(reg)}
+              {/* Show QR button for all events (normal and merchandise) */}
+              <button
+                onClick={() => handleViewQRCode(reg)}
                   disabled={resendLoading}
                   style={{
                     flex: 1,
@@ -463,7 +470,6 @@ export default function MyEvents() {
                     </>
                   )}
                 </button>
-              )}
 
               {/* Show upload payment proof button for pending merchandise orders */}
               {reg.event.type === "MERCH" && 

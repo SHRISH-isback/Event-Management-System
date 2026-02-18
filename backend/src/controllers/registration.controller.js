@@ -143,16 +143,14 @@ const registerForEvent = async (req, res) => {
     const registration = await Registration.create(registrationData);
 
     let qrCodeDataUrl = null;
-    if (event.type === "NORMAL" || (event.type === "MERCH" && (!size || !color))) {
-      try {
-        const ticketData = createTicketData(registration, event);
-        qrCodeDataUrl = await generateQRCode(ticketData);
-      } catch (qrError) {
-      }
+    try {
+      const ticketData = createTicketData(registration, event);
+      qrCodeDataUrl = await generateQRCode(ticketData);
+    } catch (qrError) {
+      console.error('Failed to generate QR code:', qrError);
     }
 
-    if (event.type === "NORMAL" || (event.type === "MERCH" && (!size || !color))) {
-      try {
+    try {
         const user = await User.findById(participantId);
         const participant = await Participant.findOne({ user: participantId });
 
@@ -191,7 +189,6 @@ const registerForEvent = async (req, res) => {
           hasPassword: !!process.env.EMAIL_PASSWORD
         });
       }
-    }
 
     let responseMessage = "Registered successfully";
     if (event.type === "MERCH" && size && color && quantity) {
@@ -324,27 +321,46 @@ const resendConfirmationEmail = async (req, res) => {
   try {
     const { registrationId } = req.params;
 
+    console.log('📧 Resending confirmation for registration:', registrationId);
+
     const registration = await Registration.findById(registrationId)
       .populate("event")
       .populate("participant");
 
     if (!registration) {
+      console.log('❌ Registration not found');
       return res.status(404).json({ message: "Registration not found" });
     }
 
     if (registration.participant._id.toString() !== req.user.id) {
+      console.log('❌ Not authorized - user mismatch');
       return res.status(403).json({ message: "Not authorized" });
     }
 
-    const user = await User.findById(req.user.id);
+    console.log('Event type:', registration.event.type);
+    console.log('Has merch details:', !!registration.merchDetails);
 
-    const ticketData = createTicketData(registration, registration.event);
-    const qrCodeDataUrl = await generateQRCode(ticketData);
+    const user = await User.findById(req.user.id);
+    let qrCodeDataUrl = null;
+
+    // Generate QR code for all events (normal and merchandise)
+    try {
+      const ticketData = createTicketData(registration, registration.event);
+      qrCodeDataUrl = await generateQRCode(ticketData);
+      console.log('✅ QR code generated successfully');
+    } catch (qrError) {
+      console.error('❌ Failed to generate QR code:', qrError);
+      return res.status(500).json({ 
+        message: "Failed to generate QR code" 
+      });
+    }
 
     const participant = await Participant.findOne({ user: req.user.id });
 
     const emailData = {
-      participantName: participant?.name || user.email.split("@")[0],
+      participantName: participant?.firstName 
+        ? `${participant.firstName} ${participant.lastName}` 
+        : user.email.split("@")[0],
       eventName: registration.event.name,
       eventDate: registration.event.startDate
         ? new Date(registration.event.startDate).toLocaleDateString("en-US", {
@@ -367,13 +383,19 @@ const resendConfirmationEmail = async (req, res) => {
       merchDetails: registration.merchDetails,
     };
 
-    await sendRegistrationEmail(user.email, emailData);
+    try {
+      await sendRegistrationEmail(user.email, emailData);
+      console.log('✅ Confirmation email sent');
+    } catch (emailError) {
+      console.error('❌ Failed to send email:', emailError);
+    }
 
     res.json({ 
-      message: "Confirmation email sent successfully",
+      message: "QR code retrieved successfully",
       qrCode: qrCodeDataUrl 
     });
   } catch (err) {
+    console.error('❌ Error in resendConfirmationEmail:', err);
     res.status(500).json({ message: err.message });
   }
 };
