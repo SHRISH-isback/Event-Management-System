@@ -2,8 +2,9 @@ const Event = require("../models/Event");
 const Registration = require("../models/Registration");
 const User = require("../models/User");
 const Participant = require("../models/Participant");
+const Organizer = require("../models/Organizer");
 const crypto = require("crypto");
-const { sendRegistrationEmail } = require("../utils/emailService");
+const { sendRegistrationEmail, sendOrderPlacedEmail, sendPaymentApprovalEmail, sendPaymentRejectionEmail } = require("../utils/emailService");
 const { generateQRCode, createTicketData } = require("../utils/qrCodeService");
 const { 
   generateICSFile, 
@@ -140,58 +141,92 @@ const registerForEvent = async (req, res) => {
       registrationData.formResponses = formResponses;
     }
 
+    if (event.type === "MERCH" && size && color && quantity) {
+      const variant = event.merchVariants.find(
+        v => v.size === size && v.color === color
+      );
+      const availableStock = variant.stock - variant.sold;
+      if (availableStock < quantity) {
+        return res.status(400).json({
+          message: `Only ${availableStock} items available in stock`,
+        });
+      }
+      variant.sold += quantity;
+      await event.save();
+    }
+
     const registration = await Registration.create(registrationData);
+    const isMerchOrder = event.type === "MERCH" && size && color && quantity;
 
     let qrCodeDataUrl = null;
-    try {
-      const ticketData = createTicketData(registration, event);
-      qrCodeDataUrl = await generateQRCode(ticketData);
-    } catch (qrError) {
-      console.error('Failed to generate QR code:', qrError);
+    if (!isMerchOrder) {
+      try {
+        const ticketData = createTicketData(registration, event);
+        qrCodeDataUrl = await generateQRCode(ticketData);
+      } catch (qrError) {
+        console.error('Failed to generate QR code:', qrError);
+      }
     }
 
     try {
-        const user = await User.findById(participantId);
-        const participant = await Participant.findOne({ user: participantId });
+      const user = await User.findById(participantId);
+      const participant = await Participant.findOne({ user: participantId });
+      const participantName = (participant?.firstName && participant?.lastName)
+        ? `${participant.firstName} ${participant.lastName}`
+        : participant?.firstName || user.email.split("@")[0];
 
-        const emailData = {
-          participantName: participant?.name || user.email.split("@")[0],
+      if (isMerchOrder) {
+        await sendOrderPlacedEmail(user.email, {
+          participantName,
           eventName: event.name,
-          eventDate: event.startDate 
-            ? new Date(event.startDate).toLocaleDateString("en-US", {
-                weekday: "long",
-                year: "numeric",
-                month: "long",
-                day: "numeric",
-              })
-            : "TBA",
-          eventTime: event.startDate
-            ? new Date(event.startDate).toLocaleTimeString("en-US", {
-                hour: "2-digit",
-                minute: "2-digit",
-              })
-            : "TBA",
-          eventLocation: event.location || "TBA",
           ticketId: registration.ticketId,
-          qrCodeDataUrl,
-          eventType: event.type,
           merchDetails: registration.merchDetails,
-        };
-
-        await sendRegistrationEmail(user.email, emailData);
-        console.log(`✅ Registration email sent to: ${user.email}`);
-      } catch (emailError) {
-        console.error('❌ Failed to send registration email:', emailError.message);
-        console.error('Email config check:', {
-          host: process.env.EMAIL_HOST,
-          port: process.env.EMAIL_PORT,
-          user: process.env.EMAIL_USER,
-          hasPassword: !!process.env.EMAIL_PASSWORD
+          registrationFee: event.registrationFee,
         });
+        console.log(`✅ Order-placed email sent to: ${user.email}`);
+      } else {
+        if (!qrCodeDataUrl) {
+          console.error('❌ Skipping registration email: QR code generation failed');
+        } else {
+          const emailData = {
+            participantName,
+            eventName: event.name,
+            eventDate: event.startDate
+              ? new Date(event.startDate).toLocaleDateString("en-US", {
+                  weekday: "long",
+                  year: "numeric",
+                  month: "long",
+                  day: "numeric",
+                })
+              : "TBA",
+            eventTime: event.startDate
+              ? new Date(event.startDate).toLocaleTimeString("en-US", {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })
+              : "TBA",
+            eventLocation: event.location || "TBA",
+            ticketId: registration.ticketId,
+            qrCodeDataUrl,
+            eventType: event.type,
+            merchDetails: registration.merchDetails,
+          };
+          await sendRegistrationEmail(user.email, emailData);
+          console.log(`✅ Registration email sent to: ${user.email}`);
+        }
       }
+    } catch (emailError) {
+      console.error('❌ Failed to send registration email:', emailError.message);
+      console.error('Email config check:', {
+        host: process.env.EMAIL_HOST,
+        port: process.env.EMAIL_PORT,
+        user: process.env.EMAIL_USER,
+        hasPassword: !!process.env.EMAIL_PASSWORD,
+      });
+    }
 
     let responseMessage = "Registered successfully";
-    if (event.type === "MERCH" && size && color && quantity) {
+    if (isMerchOrder) {
       responseMessage = "Order placed successfully. Please upload payment proof to confirm your order.";
     }
 
@@ -200,9 +235,9 @@ const registerForEvent = async (req, res) => {
       ticketId: registration.ticketId,
       registrationId: registration._id,
       merchDetails: registration.merchDetails,
-      qrCode: qrCodeDataUrl,
-      paymentStatus: (event.type === "MERCH" && size && color && quantity) ? "PENDING" : undefined,
-      requiresPaymentProof: (event.type === "MERCH" && size && color && quantity),
+      qrCode: isMerchOrder ? null : qrCodeDataUrl,
+      paymentStatus: isMerchOrder ? "PENDING" : undefined,
+      requiresPaymentProof: isMerchOrder,
     });
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -217,11 +252,13 @@ const getMyRegistrations = async (req, res) => {
       participant: req.user.id,
       status: "REGISTERED",
     })
-      .populate("event", "name description startDate endDate organizer type registrationFee")
+      .populate("event", "name description startDate endDate organizer type registrationFee merchVariants availableSizes availableColors purchaseLimit")
       .sort({ createdAt: -1 });
 
+    // Include all fields needed by the frontend (paymentStatus, paymentProof, etc. come from the document itself)
+    const registrationsWithDetails = registrations.map(reg => reg.toObject());
     console.log(`Found ${registrations.length} registrations`);
-    res.json(registrations);
+    res.json(registrationsWithDetails);
   } catch (err) {
     console.error('Error fetching registrations:', err);
     res.status(500).json({ message: err.message });
@@ -229,21 +266,53 @@ const getMyRegistrations = async (req, res) => {
 };
 const getEventRegistrations = async (req, res) => {
   try {
-    const event = await Event.findOne({
-      _id: req.params.eventId,
-      organizer: req.user.id,
-    });
+    if (req.user.role !== "ADMIN") {
+      let organizerId = req.user.organizerId;
+      if (!organizerId) {
+        const organizer = await Organizer.findOne({ user: req.user.id });
+        if (!organizer) {
+          return res.status(403).json({ message: "Not authorized: organizer profile not found" });
+        }
+        organizerId = organizer._id;
+      }
 
-    if (!event) {
-      return res.status(403).json({ message: "Not authorized" });
+      const event = await Event.findOne({
+        _id: req.params.eventId,
+        organizer: organizerId,
+      });
+
+      if (!event) {
+        return res.status(403).json({ message: "Not authorized" });
+      }
+    } else {
+      const event = await Event.findById(req.params.eventId);
+      if (!event) {
+        return res.status(404).json({ message: "Event not found" });
+      }
     }
 
     const registrations = await Registration.find({
       event: req.params.eventId,
       status: "REGISTERED",
-    }).populate("participant", "email");
+    }).populate("participant", "email").sort({ createdAt: -1 });
 
-    res.json(registrations);
+    const userIds = registrations.map(r => r.participant._id);
+    const profiles = await Participant.find({ user: { $in: userIds } });
+    const profileMap = {};
+    profiles.forEach(p => { profileMap[p.user.toString()] = p; });
+
+    const enriched = registrations.map(r => {
+      const obj = r.toObject();
+      const profile = profileMap[r.participant._id.toString()];
+      obj.participant.displayName = profile?.firstName
+        ? `${profile.firstName}${profile.lastName ? ' ' + profile.lastName : ''}`
+        : r.participant.email;
+      obj.participant.participantType = profile?.participantType;
+      obj.participant.contactNumber = profile?.contactNumber;
+      return obj;
+    });
+
+    res.json(enriched);
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -321,35 +390,47 @@ const resendConfirmationEmail = async (req, res) => {
   try {
     const { registrationId } = req.params;
 
-    console.log('📧 Resending confirmation for registration:', registrationId);
+    console.log('Resending confirmation for registration:', registrationId);
 
     const registration = await Registration.findById(registrationId)
       .populate("event")
       .populate("participant");
 
     if (!registration) {
-      console.log('❌ Registration not found');
+      console.log('Registration not found');
       return res.status(404).json({ message: "Registration not found" });
     }
 
     if (registration.participant._id.toString() !== req.user.id) {
-      console.log('❌ Not authorized - user mismatch');
+      console.log('Not authorized - user mismatch');
       return res.status(403).json({ message: "Not authorized" });
     }
 
     console.log('Event type:', registration.event.type);
     console.log('Has merch details:', !!registration.merchDetails);
+    console.log('Payment status:', registration.paymentStatus);
+    if (registration.event.type === "MERCH" && registration.paymentStatus !== "APPROVED") {
+      const statusMsg = {
+        PENDING: registration.paymentProof
+          ? "Your payment proof is awaiting organizer approval. QR code will be available once approved."
+          : "Please upload your payment proof first. QR code will be available once payment is approved.",
+        REJECTED: "Your payment was rejected. QR code is not available. Please contact the organizer.",
+      };
+      return res.status(403).json({
+        message: statusMsg[registration.paymentStatus] || "QR code is not available for this order.",
+        paymentStatus: registration.paymentStatus,
+      });
+    }
 
     const user = await User.findById(req.user.id);
     let qrCodeDataUrl = null;
 
-    // Generate QR code for all events (normal and merchandise)
     try {
       const ticketData = createTicketData(registration, registration.event);
       qrCodeDataUrl = await generateQRCode(ticketData);
-      console.log('✅ QR code generated successfully');
+      console.log('QR code generated successfully');
     } catch (qrError) {
-      console.error('❌ Failed to generate QR code:', qrError);
+      console.error('Failed to generate QR code:', qrError);
       return res.status(500).json({ 
         message: "Failed to generate QR code" 
       });
@@ -532,13 +613,33 @@ const uploadPaymentProof = async (req, res) => {
     if (registration.event.type !== "MERCH") {
       return res.status(400).json({ message: "Not a merchandise order" });
     }
-    if (registration.paymentStatus !== "PENDING") {
+    if (!["PENDING", "REJECTED"].includes(registration.paymentStatus)) {
       return res.status(400).json({ 
         message: `Cannot upload payment proof. Current status: ${registration.paymentStatus}` 
       });
     }
 
     registration.paymentProof = paymentProof;
+    // If previously rejected, reset to PENDING for re-review and re-reserve stock
+    if (registration.paymentStatus === "REJECTED") {
+      const event = registration.event;
+      const variant = event.merchVariants.find(
+        v => v.size === registration.merchDetails.size &&
+             v.color === registration.merchDetails.color
+      );
+      if (variant && registration.merchDetails?.quantity) {
+        const availableStock = variant.stock - variant.sold;
+        if (availableStock < registration.merchDetails.quantity) {
+          return res.status(400).json({
+            message: `Cannot re-submit: only ${availableStock} items are now available in stock. Please contact the organizer.`,
+          });
+        }
+        variant.sold += registration.merchDetails.quantity;
+        await event.save();
+      }
+      registration.paymentStatus = "PENDING";
+      registration.paymentRejectionReason = undefined;
+    }
     await registration.save();
 
     res.json({ 
@@ -557,28 +658,25 @@ const getPendingMerchOrders = async (req, res) => {
   try {
     const organizerId = req.params.organizerId;
 
+    if (req.user.organizerId && req.user.organizerId.toString() !== organizerId.toString()) {
+      return res.status(403).json({ message: "Not authorized" });
+    }
+
     const events = await Event.find({ organizer: organizerId, type: "MERCH" });
     const eventIds = events.map(e => e._id);
 
     const pendingOrders = await Registration.find({
       event: { $in: eventIds },
+      status: "REGISTERED",
       paymentStatus: { $in: ["PENDING", "APPROVED", "REJECTED"] }
     })
       .populate("participant", "email")
       .populate("event", "name registrationFee")
-      .populate({
-        path: "participant",
-        populate: {
-          path: "user",
-          model: "User",
-          select: "email"
-        }
-      })
       .sort({ createdAt: -1 });
 
     const ordersWithDetails = await Promise.all(
       pendingOrders.map(async (order) => {
-        const participant = await Participant.findOne({ user: order.participant });
+        const participant = await Participant.findOne({ user: order.participant._id });
         return {
           ...order.toObject(),
           participantDetails: participant
@@ -604,7 +702,9 @@ const approvePayment = async (req, res) => {
     }
 
     const event = registration.event;
-    if (event.organizer.toString() !== req.user.organizerId) {
+
+    const organizerId = req.user.organizerId;
+    if (!organizerId || event.organizer.toString() !== organizerId.toString()) {
       return res.status(403).json({ message: "Not authorized" });
     }
 
@@ -615,27 +715,8 @@ const approvePayment = async (req, res) => {
     }
 
     if (!registration.paymentProof) {
-      return res.status(400).json({ message: "No payment proof uploaded" });
+      return res.status(400).json({ message: "No payment proof uploaded yet" });
     }
-
-    const variant = event.merchVariants.find(
-      v => v.size === registration.merchDetails.size && 
-           v.color === registration.merchDetails.color
-    );
-
-    if (!variant) {
-      return res.status(400).json({ message: "Variant not found" });
-    }
-
-    const availableStock = variant.stock - variant.sold;
-    if (availableStock < registration.merchDetails.quantity) {
-      return res.status(400).json({ 
-        message: `Insufficient stock. Only ${availableStock} items available` 
-      });
-    }
-
-    variant.sold += registration.merchDetails.quantity;
-    await event.save();
 
     registration.paymentStatus = "APPROVED";
     registration.orderSuccessful = true;
@@ -647,8 +728,9 @@ const approvePayment = async (req, res) => {
     try {
       const ticketData = createTicketData(registration, event);
       qrCodeDataUrl = await generateQRCode(ticketData);
+      console.log('✅ QR code generated for approved merch order');
     } catch (qrError) {
-      // QR code generation failed
+      console.error('❌ QR code generation failed:', qrError);
     }
 
     try {
@@ -657,33 +739,19 @@ const approvePayment = async (req, res) => {
         user: registration.participant._id || registration.participant 
       });
 
-      const emailData = {
-        participantName: participant?.name || user.email.split("@")[0],
+      await sendPaymentApprovalEmail(user.email, {
+        participantName: (participant?.firstName && participant?.lastName)
+          ? `${participant.firstName} ${participant.lastName}`
+          : participant?.firstName || user.email.split("@")[0],
         eventName: event.name,
-        eventDate: event.startDate 
-          ? new Date(event.startDate).toLocaleDateString("en-US", {
-              weekday: "long",
-              year: "numeric",
-              month: "long",
-              day: "numeric",
-            })
-          : "TBA",
-        eventTime: event.startDate
-          ? new Date(event.startDate).toLocaleTimeString("en-US", {
-              hour: "2-digit",
-              minute: "2-digit",
-            })
-          : "TBA",
-        eventLocation: event.location || "TBA",
         ticketId: registration.ticketId,
         qrCodeDataUrl,
-        eventType: event.type,
         merchDetails: registration.merchDetails,
-      };
-
-      await sendRegistrationEmail(user.email, emailData);
+        registrationFee: event.registrationFee,
+      });
+      console.log('✅ Payment approval email sent');
     } catch (emailError) {
-      // Email sending failed
+      console.error('❌ Failed to send approval email:', emailError.message);
     }
 
     res.json({ 
@@ -717,7 +785,10 @@ const rejectPayment = async (req, res) => {
     }
 
     const event = registration.event;
-    if (event.organizer.toString() !== req.user.organizerId) {
+
+    // Verify the organizer owns this event
+    const organizerId = req.user.organizerId;
+    if (!organizerId || event.organizer.toString() !== organizerId.toString()) {
       return res.status(403).json({ message: "Not authorized" });
     }
 
@@ -727,10 +798,42 @@ const rejectPayment = async (req, res) => {
       });
     }
 
+    // Release the stock reservation that was made at order-placement time.
+    const variant = event.merchVariants.find(
+      v => v.size === registration.merchDetails.size &&
+           v.color === registration.merchDetails.color
+    );
+    if (variant && registration.merchDetails?.quantity) {
+      variant.sold = Math.max(0, variant.sold - registration.merchDetails.quantity);
+      await event.save();
+    }
+
     registration.paymentStatus = "REJECTED";
     registration.paymentRejectionReason = reason;
     registration.orderSuccessful = false;
     await registration.save();
+
+    // Send rejection email to participant
+    try {
+      await registration.populate("participant");
+      const user = await User.findById(registration.participant._id || registration.participant);
+      const participant = await Participant.findOne({ 
+        user: registration.participant._id || registration.participant 
+      });
+
+      await sendPaymentRejectionEmail(user.email, {
+        participantName: (participant?.firstName && participant?.lastName)
+          ? `${participant.firstName} ${participant.lastName}`
+          : participant?.firstName || user.email.split("@")[0],
+        eventName: event.name,
+        ticketId: registration.ticketId,
+        reason,
+        merchDetails: registration.merchDetails,
+      });
+      console.log('✅ Payment rejection email sent');
+    } catch (emailError) {
+      console.error('❌ Failed to send rejection email:', emailError.message);
+    }
 
     res.json({ 
       message: "Payment rejected.",

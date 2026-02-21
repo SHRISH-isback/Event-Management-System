@@ -55,13 +55,15 @@ const registrationSchema = new mongoose.Schema(
     },
 
     merchDetails: {
-      size: String,
-      color: String,
-      quantity: {
-        type: Number,
-        default: 1,
-        min: 1,
-      },
+      type: new mongoose.Schema({
+        size: String,
+        color: String,
+        quantity: {
+          type: Number,
+          min: 1,
+        },
+      }, { _id: false }),
+      default: undefined,
     },
 
     formResponses: {

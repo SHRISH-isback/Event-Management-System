@@ -36,7 +36,7 @@ router.get(
 router.get(
   "/event/:eventId",
   requireAuth,
-  requireRole("ORGANIZER"),
+  requireRole(["ORGANIZER", "ADMIN"]),
   getEventRegistrations
 );
 
