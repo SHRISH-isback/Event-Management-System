@@ -29,6 +29,8 @@ export default function EventDetails() {
     const [formErrors, setFormErrors] = useState({});
     const [showCalendarExport, setShowCalendarExport] = useState(false);
     const [showMerchPrompt, setShowMerchPrompt] = useState(false);
+    const [showMerchOrderConfirm, setShowMerchOrderConfirm] = useState(false);
+    const [merchOrderDetails, setMerchOrderDetails] = useState(null);
 
     useEffect(() => {
         const fetchEvent = async () => {
@@ -105,18 +107,6 @@ export default function EventDetails() {
 
             const res = await api.post(`/registrations/${eventId}`, requestData);
             
-            let successMsg;
-            if (event.type === "MERCH") {
-                if (skipMerch) {
-                    successMsg = `Registered successfully! Your Ticket ID: ${res.data.ticketId}\nYou can purchase merchandise later.`;
-                } else {
-                    successMsg = `Purchase successful! Your Order ID: ${res.data.ticketId}\n${quantity} × ${selectedSize} ${selectedColor}`;
-                }
-            } else {
-                successMsg = `Registered successfully! Your Ticket ID: ${res.data.ticketId}`;
-            }
-            
-            setMessage(successMsg);
             setIsRegistered(true);
             setRegistrationCount(prev => prev + 1);
             setRegistrationId(res.data.registrationId);
@@ -124,10 +114,29 @@ export default function EventDetails() {
             setShowPurchaseModal(false);
             setShowCustomFormModal(false);
             setShowMerchPrompt(false);
-            
-            if (res.data.qrCode) {
+
+            if (event.type === "MERCH" && !skipMerch && res.data.requiresPaymentProof) {
+                // Show pending-payment confirmation — no QR at this stage
+                setMerchOrderDetails({
+                    ticketId: res.data.ticketId,
+                    size: selectedSize,
+                    color: selectedColor,
+                    quantity,
+                });
+                setShowMerchOrderConfirm(true);
+            } else if (res.data.qrCode) {
+                // Normal event — show QR immediately
                 setQrCodeData(res.data.qrCode);
                 setShowQRModal(true);
+            } else {
+                // Normal event without QR (shouldn't happen, but safe fallback)
+                let successMsg;
+                if (event.type === "MERCH" && skipMerch) {
+                    successMsg = `Registered successfully! Your Ticket ID: ${res.data.ticketId}. You can purchase merchandise later from My Events.`;
+                } else {
+                    successMsg = `Registered successfully! Your Ticket ID: ${res.data.ticketId}`;
+                }
+                setMessage(successMsg);
             }
         } catch (err) {
             setError(
@@ -167,10 +176,10 @@ export default function EventDetails() {
     };
 
     const getRegistrationButtonText = () => {
-        if (isRegistered) return "Already Registered";
+        if (isRegistered) return event?.type === "MERCH" ? "✓ Order Placed" : "✓ Already Registered";
         if (isDeadlinePassed()) return "Registration Closed";
         if (isEventFull()) return "Event Full";
-        if (event?.type === "MERCH") return "Register for Event";
+        if (event?.type === "MERCH") return "🛍️ Purchase Merchandise";
         return "Register Now";
     };
 
@@ -570,12 +579,15 @@ export default function EventDetails() {
                         {selectedSize && selectedColor && (
                             <div style={{
                                 padding: "12px",
-                                backgroundColor: "#f0fdf4",
+                                backgroundColor: getAvailableStock() === 0 ? "#fee2e2" : "#f0fdf4",
                                 borderRadius: "6px",
                                 marginBottom: "20px"
                             }}>
-                                <p style={{ margin: "5px 0" }}>
-                                    <b>Available Stock:</b> {getAvailableStock()} items
+                                <p style={{ margin: "5px 0", color: getAvailableStock() === 0 ? "#991b1b" : "inherit" }}>
+                                    <b>Available Stock:</b>{" "}
+                                    {getAvailableStock() === 0
+                                        ? "❌ Out of Stock — this variant is unavailable"
+                                        : `${getAvailableStock()} items`}
                                 </p>
                             </div>
                         )}
@@ -791,6 +803,81 @@ export default function EventDetails() {
             )}
 
             {}
+            {showMerchOrderConfirm && merchOrderDetails && (
+                <div style={{
+                    position: "fixed",
+                    top: 0, left: 0, right: 0, bottom: 0,
+                    backgroundColor: "rgba(0, 0, 0, 0.7)",
+                    display: "flex",
+                    justifyContent: "center",
+                    alignItems: "center",
+                    zIndex: 1000,
+                    padding: "20px"
+                }}>
+                    <div style={{
+                        backgroundColor: "white",
+                        padding: "40px",
+                        borderRadius: "12px",
+                        maxWidth: "480px",
+                        width: "100%",
+                        textAlign: "center",
+                        boxShadow: "0 10px 25px rgba(0,0,0,0.2)"
+                    }}>
+                        <div style={{ fontSize: "48px", marginBottom: "15px" }}>🛍️</div>
+                        <h2 style={{ fontSize: "22px", fontWeight: "bold", color: "#1f2937", marginBottom: "8px" }}>
+                            Order Placed!
+                        </h2>
+                        <p style={{ color: "#6b7280", fontSize: "14px", marginBottom: "20px" }}>
+                            A confirmation email with next steps has been sent to your inbox.
+                        </p>
+
+                        <div style={{ backgroundColor: "#f3f4f6", padding: "16px", borderRadius: "8px", marginBottom: "16px" }}>
+                            <p style={{ fontSize: "11px", color: "#6b7280", textTransform: "uppercase", letterSpacing: "1px", marginBottom: "4px" }}>Order ID</p>
+                            <p style={{ fontSize: "20px", fontWeight: "bold", color: "#4f46e5", letterSpacing: "2px", margin: 0 }}>
+                                {merchOrderDetails.ticketId}
+                            </p>
+                        </div>
+
+                        <div style={{ backgroundColor: "#f0fdf4", border: "1px solid #86efac", padding: "14px", borderRadius: "8px", marginBottom: "16px", textAlign: "left" }}>
+                            <p style={{ fontWeight: "bold", color: "#15803d", marginBottom: "8px", fontSize: "14px" }}>📦 Order Details</p>
+                            <p style={{ margin: "4px 0", fontSize: "14px" }}><b>Size:</b> {merchOrderDetails.size}</p>
+                            <p style={{ margin: "4px 0", fontSize: "14px" }}><b>Color:</b> {merchOrderDetails.color}</p>
+                            <p style={{ margin: "4px 0", fontSize: "14px" }}><b>Quantity:</b> {merchOrderDetails.quantity}</p>
+                            <p style={{ margin: "4px 0", fontSize: "14px" }}><b>Price per item:</b> ₹{event?.registrationFee}</p>
+                            <p style={{ margin: "4px 0", fontSize: "14px", fontWeight: "bold" }}>
+                                <b>Total:</b> ₹{event?.registrationFee * merchOrderDetails.quantity}
+                            </p>
+                        </div>
+
+                        <div style={{ backgroundColor: "#fffbeb", border: "1px solid #fbbf24", padding: "14px", borderRadius: "8px", marginBottom: "20px", textAlign: "left" }}>
+                            <p style={{ fontWeight: "bold", color: "#92400e", marginBottom: "8px", fontSize: "14px" }}>⚠️ Next Steps (Required)</p>
+                            <ol style={{ margin: 0, paddingLeft: "20px", fontSize: "13px", color: "#92400e", lineHeight: "1.8" }}>
+                                <li>Complete payment of <b>₹{event?.registrationFee * merchOrderDetails.quantity}</b></li>
+                                <li>Screenshot or photo your payment receipt</li>
+                                <li>Go to <b>My Events</b> → Upload Payment Proof</li>
+                                <li>Await organizer approval</li>
+                                <li>QR ticket sent via email upon approval ✅</li>
+                            </ol>
+                        </div>
+
+                        <div style={{ display: "flex", gap: "10px" }}>
+                            <button
+                                onClick={() => { setShowMerchOrderConfirm(false); setMerchOrderDetails(null); }}
+                                style={{
+                                    flex: 1, padding: "12px",
+                                    backgroundColor: "#4f46e5", color: "white",
+                                    border: "none", borderRadius: "6px",
+                                    cursor: "pointer", fontSize: "14px", fontWeight: "600"
+                                }}
+                            >
+                                Got it!
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {}
             {showQRModal && qrCodeData && (
                 <div style={{
                     position: "fixed",
@@ -829,7 +916,7 @@ export default function EventDetails() {
                             marginBottom: "10px",
                             color: "#1f2937"
                         }}>
-                            {event?.type === "MERCH" ? "Purchase Confirmed!" : "Registration Successful!"}
+                            Registration Successful!
                         </h2>
                         
                         <p style={{
@@ -837,7 +924,7 @@ export default function EventDetails() {
                             marginBottom: "20px",
                             fontSize: "14px"
                         }}>
-                            A confirmation email with your {event?.type === "MERCH" ? "order" : "ticket"} details has been sent
+                            A confirmation email with your ticket and QR code has been sent
                         </p>
 
                         <div style={{
@@ -853,7 +940,7 @@ export default function EventDetails() {
                                 textTransform: "uppercase",
                                 letterSpacing: "1px"
                             }}>
-                                {event?.type === "MERCH" ? "Order ID" : "Ticket ID"}
+                                Ticket ID
                             </p>
                             <p style={{
                                 fontSize: "20px",
@@ -887,9 +974,7 @@ export default function EventDetails() {
                                 fontSize: "14px",
                                 marginTop: "15px"
                             }}>
-                                {event?.type === "MERCH" 
-                                    ? "Show this QR code to collect your merchandise"
-                                    : "Show this QR code at the event entrance"}
+                                Show this QR code at the event entrance
                             </p>
                         </div>
 

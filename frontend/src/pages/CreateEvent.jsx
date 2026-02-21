@@ -13,6 +13,9 @@ export default function CreateEvent() {
         startDate: "",
         endDate: "",
         registrationLimit: "",
+        registrationFee: "0",
+        eligibility: "",
+        registrationDeadline: "",
     });
 
     const [merchSizes, setMerchSizes] = useState([]);
@@ -239,6 +242,34 @@ export default function CreateEvent() {
                     name="registrationLimit"
                     placeholder="Registration Limit"
                     value={form.registrationLimit}
+                    onChange={handleChange}
+                />
+
+                <input
+                    className="input"
+                    type="number"
+                    name="registrationFee"
+                    placeholder="Registration Fee (₹) — enter 0 for free"
+                    value={form.registrationFee}
+                    onChange={handleChange}
+                    min="0"
+                />
+
+                <input
+                    className="input"
+                    type="text"
+                    name="eligibility"
+                    placeholder="Eligibility (e.g. Open to all, 1st year only)"
+                    value={form.eligibility}
+                    onChange={handleChange}
+                />
+
+                <input
+                    className="input"
+                    type="date"
+                    name="registrationDeadline"
+                    placeholder="Registration Deadline"
+                    value={form.registrationDeadline}
                     onChange={handleChange}
                 />
 

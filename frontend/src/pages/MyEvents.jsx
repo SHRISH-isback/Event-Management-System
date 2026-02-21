@@ -12,7 +12,7 @@ export default function MyEvents() {
   const [showQRModal, setShowQRModal] = useState(false);
   const [selectedRegistration, setSelectedRegistration] = useState(null);
   const [qrCodeData, setQrCodeData] = useState(null);
-  const [resendLoading, setResendLoading] = useState(false);
+  const [resendLoading, setResendLoading] = useState(null); 
   const [showCalendarExport, setShowCalendarExport] = useState(false);
   const [calendarRegistration, setCalendarRegistration] = useState(null);
   const [showBatchCalendarExport, setShowBatchCalendarExport] = useState(false);
@@ -77,8 +77,19 @@ export default function MyEvents() {
   );
 
   const handleViewQRCode = async (registration) => {
+    if (registration.event.type === "MERCH" && registration.paymentStatus !== "APPROVED") {
+      const msgs = {
+        PENDING: registration.paymentProof
+          ? "Your payment is awaiting organizer approval. QR code will be available once approved."
+          : "Please upload your payment proof first. QR code will be available after payment approval.",
+        REJECTED: "Your payment was rejected. Please re-upload a valid payment proof.",
+      };
+      alert(msgs[registration.paymentStatus] || "QR code not available for this order.");
+      return;
+    }
+
     setSelectedRegistration(registration);
-    setResendLoading(true);
+    setResendLoading(registration._id);
     
     try {
       console.log('Fetching QR code for registration:', registration._id);
@@ -98,7 +109,7 @@ export default function MyEvents() {
       const errorMessage = err.response?.data?.message || "Failed to retrieve QR code";
       alert(errorMessage);
     } finally {
-      setResendLoading(false);
+      setResendLoading(null);
     }
   };
 
@@ -316,7 +327,7 @@ export default function MyEvents() {
 
             <p style={{ display: "flex", alignItems: "center", gap: "8px" }}>
               <span style={{ fontSize: "16px" }}></span>
-              <b>{reg.merchDetails ? "Order ID" : "Ticket ID"}:</b>{" "}
+              <b>{reg.event.type === "MERCH" ? "Order ID" : "Ticket ID"}:</b>{" "}
               <span style={{ 
                 color: "#2563eb", 
                 fontWeight: "bold",
@@ -345,7 +356,7 @@ export default function MyEvents() {
             </p>
           </div>
 
-          {reg.merchDetails && (
+          {reg.event.type === "MERCH" && reg.merchDetails && (
             <div
               style={{
                 padding: "15px",
@@ -413,17 +424,19 @@ export default function MyEvents() {
                         : "#856404",
                   }}
                 >
-                  {reg.paymentStatus}
+                  {reg.paymentStatus === "PENDING" && reg.paymentProof
+                    ? "PENDING APPROVAL"
+                    : reg.paymentStatus}
                 </span>
               </p>
               {reg.paymentStatus === "PENDING" && !reg.paymentProof && (
                 <p style={{ margin: "5px 0 0 0", fontSize: "14px" }}>
-                  Please upload payment proof to confirm your order.
+                  📤 Please upload payment proof to confirm your order.
                 </p>
               )}
               {reg.paymentStatus === "PENDING" && reg.paymentProof && (
                 <p style={{ margin: "5px 0 0 0", fontSize: "14px" }}>
-                  Payment proof uploaded. Awaiting organizer approval.
+                  ⏳ Payment proof uploaded. Awaiting organizer approval.
                 </p>
               )}
               {reg.paymentStatus === "REJECTED" && reg.paymentRejectionReason && (
@@ -431,9 +444,14 @@ export default function MyEvents() {
                   <strong>Reason:</strong> {reg.paymentRejectionReason}
                 </p>
               )}
+              {reg.paymentStatus === "REJECTED" && (
+                <p style={{ margin: "5px 0 0 0", fontSize: "14px" }}>
+                  🔄 Please re-upload a valid payment proof.
+                </p>
+              )}
               {reg.paymentStatus === "APPROVED" && (
                 <p style={{ margin: "5px 0 0 0", fontSize: "14px" }}>
-                  Your order has been confirmed! QR code is available below.
+                  ✅ Your order has been confirmed! Use the QR code button below.
                 </p>
               )}
             </div>
@@ -441,11 +459,12 @@ export default function MyEvents() {
 
           {}
           {reg.status === "REGISTERED" && (
-            <div style={{ display: "flex", gap: "10px", marginTop: "15px" }}>
-              {/* Show QR button for all events (normal and merchandise) */}
-              <button
-                onClick={() => handleViewQRCode(reg)}
-                  disabled={resendLoading}
+            <div style={{ display: "flex", gap: "10px", marginTop: "15px", flexWrap: "wrap" }}>
+              {/* QR Code button — only for normal events OR approved merch orders */}
+              {(reg.event.type === "NORMAL" || reg.paymentStatus === "APPROVED") && (
+                <button
+                  onClick={() => handleViewQRCode(reg)}
+                  disabled={resendLoading === reg._id}
                   style={{
                     flex: 1,
                     padding: "12px 20px",
@@ -453,35 +472,37 @@ export default function MyEvents() {
                     color: "white",
                     border: "none",
                     borderRadius: "8px",
-                    cursor: resendLoading ? "not-allowed" : "pointer",
+                    cursor: resendLoading === reg._id ? "not-allowed" : "pointer",
                     fontSize: "14px",
                     fontWeight: "600",
-                    opacity: resendLoading ? 0.6 : 1,
+                    opacity: resendLoading === reg._id ? 0.6 : 1,
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
-                    gap: "8px"
+                    gap: "8px",
+                    minWidth: "160px",
                   }}
                 >
-                  {resendLoading ? "Loading..." : (
+                  {resendLoading === reg._id ? "Loading..." : (
                     <>
-                      <span></span>
+                      <span>🎫</span>
                       View QR Code
                     </>
                   )}
                 </button>
+              )}
 
-              {/* Show upload payment proof button for pending merchandise orders */}
-              {reg.event.type === "MERCH" && 
-               reg.paymentStatus === "PENDING" && 
+              {/* Upload payment proof — for pending merch orders without proof */}
+              {reg.event.type === "MERCH" &&
+               reg.paymentStatus === "PENDING" &&
                !reg.paymentProof && (
                 <button
                   onClick={() => handleUploadPaymentProof(reg)}
                   style={{
                     flex: 1,
                     padding: "12px 20px",
-                    backgroundColor: "#ffc107",
-                    color: "#000",
+                    backgroundColor: "#f59e0b",
+                    color: "#fff",
                     border: "none",
                     borderRadius: "8px",
                     cursor: "pointer",
@@ -490,15 +511,43 @@ export default function MyEvents() {
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
-                    gap: "8px"
+                    gap: "8px",
+                    minWidth: "190px",
                   }}
                 >
                   <span>📤</span>
                   Upload Payment Proof
                 </button>
               )}
-              
-              {new Date(reg.event.startDate) >= new Date() && (
+
+              {/* Re-upload payment proof — after rejection */}
+              {reg.event.type === "MERCH" && reg.paymentStatus === "REJECTED" && (
+                <button
+                  onClick={() => handleUploadPaymentProof(reg)}
+                  style={{
+                    flex: 1,
+                    padding: "12px 20px",
+                    backgroundColor: "#dc2626",
+                    color: "#fff",
+                    border: "none",
+                    borderRadius: "8px",
+                    cursor: "pointer",
+                    fontSize: "14px",
+                    fontWeight: "600",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: "8px",
+                    minWidth: "190px",
+                  }}
+                >
+                  <span>�</span>
+                  Re-upload Payment Proof
+                </button>
+              )}
+
+              {/* Add to Calendar — only for normal events with upcoming dates */}
+              {reg.event.type === "NORMAL" && new Date(reg.event.startDate) >= new Date() && (
                 <button
                   onClick={() => handleAddToCalendar(reg)}
                   style={{
@@ -514,10 +563,11 @@ export default function MyEvents() {
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
-                    gap: "8px"
+                    gap: "8px",
+                    minWidth: "160px",
                   }}
                 >
-                   Add to Calendar
+                  📅 Add to Calendar
                 </button>
               )}
             </div>
@@ -654,14 +704,20 @@ export default function MyEvents() {
                 color: "#1e40af",
                 margin: 0
               }}>
-                <strong> Email Sent!</strong>
+                <strong>
+                  {selectedRegistration.event.type === "MERCH"
+                    ? "✅ Payment Approved!"
+                    : "📧 Email Sent!"}
+                </strong>
               </p>
               <p style={{
                 fontSize: "12px",
                 color: "#1e40af",
                 margin: "5px 0 0 0"
               }}>
-                A confirmation email with this QR code has been resent to your email address.
+                {selectedRegistration.event.type === "MERCH"
+                  ? "Your order is confirmed. A confirmation email with this QR code was sent upon approval."
+                  : "A confirmation email with this QR code has been resent to your email address."}
               </p>
             </div>
 

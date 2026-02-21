@@ -10,6 +10,8 @@ export default function OrganizerDashboard() {
   useEffect(() => {
     api.get("/events/my").then((res) => setEvents(res.data));
   }, []);
+
+  const hasMerchEvents = events.some((e) => e.type === "MERCH");
   const publishEvent = async (eventId) => {
     try {
       await api.patch(`/events/${eventId}/publish`);
@@ -26,13 +28,23 @@ export default function OrganizerDashboard() {
 
   return (
     <div className="container">
-      <button
-        className="btn"
-        style={{ marginBottom: "15px" }}
-        onClick={() => navigate("/organizer/create")}
-      >
-        Create New Event
-      </button>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "15px", flexWrap: "wrap", gap: "10px" }}>
+        <button
+          className="btn"
+          onClick={() => navigate("/organizer/create")}
+        >
+          + Create New Event
+        </button>
+        {hasMerchEvents && (
+          <button
+            className="btn"
+            onClick={() => navigate("/organizer/merchandise-orders")}
+            style={{ backgroundColor: "#f59e0b", color: "#fff", border: "none" }}
+          >
+            🛍️ Merchandise Orders
+          </button>
+        )}
+      </div>
       <h2>My Events</h2>
 
       {events.length === 0 && <p>No events created yet.</p>}
@@ -76,13 +88,24 @@ export default function OrganizerDashboard() {
               >
                 View Registrations
               </button>
-              <button
-                className="btn"
-                onClick={() => navigate(`/organizer/event/${event._id}/attendance`)}
-                style={{ backgroundColor: "#10b981" }}
-              >
-                 Attendance Tracking
-              </button>
+              {event.type === "NORMAL" && (
+                <button
+                  className="btn"
+                  onClick={() => navigate(`/organizer/event/${event._id}/attendance`)}
+                  style={{ backgroundColor: "#10b981", marginRight: "10px" }}
+                >
+                  ✅ Attendance Tracking
+                </button>
+              )}
+              {event.type === "MERCH" && (
+                <button
+                  className="btn"
+                  onClick={() => navigate("/organizer/merchandise-orders")}
+                  style={{ backgroundColor: "#f59e0b", color: "#fff", border: "none" }}
+                >
+                  🛍️ Merch Orders
+                </button>
+              )}
             </>
           )}
         </div>

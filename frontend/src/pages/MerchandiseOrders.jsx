@@ -106,7 +106,8 @@ export default function MerchandiseOrders() {
     return <div className="container">Loading orders...</div>;
   }
 
-  const pendingOrders = orders.filter((o) => o.paymentStatus === "PENDING");
+  const pendingOrders = orders.filter((o) => o.paymentStatus === "PENDING" && o.paymentProof);
+  const awaitingProofOrders = orders.filter((o) => o.paymentStatus === "PENDING" && !o.paymentProof);
   const approvedOrders = orders.filter((o) => o.paymentStatus === "APPROVED");
   const rejectedOrders = orders.filter((o) => o.paymentStatus === "REJECTED");
 
@@ -114,6 +115,8 @@ export default function MerchandiseOrders() {
     switch (activeTab) {
       case "pending":
         return pendingOrders;
+      case "awaiting":
+        return awaitingProofOrders;
       case "approved":
         return approvedOrders;
       case "rejected":
@@ -125,46 +128,75 @@ export default function MerchandiseOrders() {
 
   const filteredOrders = getFilteredOrders();
 
-  const getStatusBadge = (status) => {
-    const styles = {
-      PENDING: { background: "#ffc107", color: "#000" },
-      APPROVED: { background: "#28a745", color: "#fff" },
-      REJECTED: { background: "#dc3545", color: "#fff" },
-    };
+  const getStatusBadge = (order) => {
+    let label, style;
+    if (order.paymentStatus === "PENDING" && !order.paymentProof) {
+      label = "⏳ Awaiting Proof";
+      style = { background: "#6b7280", color: "#fff" };
+    } else if (order.paymentStatus === "PENDING" && order.paymentProof) {
+      label = "🔍 Pending Approval";
+      style = { background: "#f59e0b", color: "#fff" };
+    } else if (order.paymentStatus === "APPROVED") {
+      label = "✅ Approved";
+      style = { background: "#28a745", color: "#fff" };
+    } else if (order.paymentStatus === "REJECTED") {
+      label = "❌ Rejected";
+      style = { background: "#dc3545", color: "#fff" };
+    } else {
+      label = order.paymentStatus;
+      style = { background: "#e9ecef", color: "#000" };
+    }
 
     return (
       <span
         style={{
-          padding: "4px 12px",
+          padding: "5px 12px",
           borderRadius: "12px",
           fontSize: "12px",
           fontWeight: "bold",
-          ...styles[status],
+          ...style,
         }}
       >
-        {status}
+        {label}
       </span>
     );
   };
 
   return (
     <div className="container" style={{ padding: "20px" }}>
-      <h1 style={{ marginBottom: "20px" }}>Merchandise Orders</h1>
+      <h1 style={{ marginBottom: "8px" }}>🛍️ Merchandise Orders</h1>
+      <p style={{ color: "#6b7280", marginBottom: "24px" }}>
+        Review and manage payment proofs for merchandise orders
+      </p>
 
-      <div style={{ marginBottom: "30px", display: "flex", gap: "10px" }}>
+      <div style={{ marginBottom: "30px", display: "flex", gap: "10px", flexWrap: "wrap" }}>
         <button
           onClick={() => setActiveTab("pending")}
           style={{
             padding: "10px 20px",
             borderRadius: "5px",
             border: "none",
-            background: activeTab === "pending" ? "#007bff" : "#e9ecef",
+            background: activeTab === "pending" ? "#f59e0b" : "#e9ecef",
             color: activeTab === "pending" ? "white" : "#000",
             cursor: "pointer",
             fontWeight: "bold",
           }}
         >
-          Pending ({pendingOrders.length})
+          ⏳ Pending Approval ({pendingOrders.length})
+        </button>
+        <button
+          onClick={() => setActiveTab("awaiting")}
+          style={{
+            padding: "10px 20px",
+            borderRadius: "5px",
+            border: "none",
+            background: activeTab === "awaiting" ? "#6b7280" : "#e9ecef",
+            color: activeTab === "awaiting" ? "white" : "#000",
+            cursor: "pointer",
+            fontWeight: "bold",
+          }}
+        >
+          📭 Awaiting Proof ({awaitingProofOrders.length})
         </button>
         <button
           onClick={() => setActiveTab("approved")}
@@ -172,13 +204,13 @@ export default function MerchandiseOrders() {
             padding: "10px 20px",
             borderRadius: "5px",
             border: "none",
-            background: activeTab === "approved" ? "#007bff" : "#e9ecef",
+            background: activeTab === "approved" ? "#28a745" : "#e9ecef",
             color: activeTab === "approved" ? "white" : "#000",
             cursor: "pointer",
             fontWeight: "bold",
           }}
         >
-          Approved ({approvedOrders.length})
+          ✅ Approved ({approvedOrders.length})
         </button>
         <button
           onClick={() => setActiveTab("rejected")}
@@ -186,19 +218,22 @@ export default function MerchandiseOrders() {
             padding: "10px 20px",
             borderRadius: "5px",
             border: "none",
-            background: activeTab === "rejected" ? "#007bff" : "#e9ecef",
+            background: activeTab === "rejected" ? "#dc3545" : "#e9ecef",
             color: activeTab === "rejected" ? "white" : "#000",
             cursor: "pointer",
             fontWeight: "bold",
           }}
         >
-          Rejected ({rejectedOrders.length})
+          ❌ Rejected ({rejectedOrders.length})
         </button>
       </div>
 
       {filteredOrders.length === 0 ? (
         <div style={{ textAlign: "center", padding: "40px", color: "#666" }}>
-          No {activeTab} orders found.
+          {activeTab === "awaiting" && "No orders awaiting payment proof upload."}
+          {activeTab === "pending" && "No orders pending approval."}
+          {activeTab === "approved" && "No approved orders yet."}
+          {activeTab === "rejected" && "No rejected orders."}
         </div>
       ) : (
         <div style={{ display: "grid", gap: "20px" }}>
@@ -229,7 +264,7 @@ export default function MerchandiseOrders() {
                     <strong>Contact:</strong> {order.participantDetails?.contactNumber}
                   </p>
                 </div>
-                <div>{getStatusBadge(order.paymentStatus)}</div>
+                <div>{getStatusBadge(order)}</div>
               </div>
 
               <div style={{ marginBottom: "15px", paddingTop: "15px", borderTop: "1px solid #eee" }}>

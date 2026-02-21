@@ -26,7 +26,7 @@ export default function AttendanceDashboard() {
         api.get(`/attendance/dashboard/${eventId}`),
       ]);
       
-      setEvent(eventRes.data.event);
+      setEvent(eventRes.data.event || eventRes.data);
       setStats(attendanceRes.data.stats);
       setScannedRegistrations(attendanceRes.data.scannedRegistrations);
       setNotScannedRegistrations(attendanceRes.data.notScannedRegistrations);
@@ -286,7 +286,7 @@ export default function AttendanceDashboard() {
               auditLogs.map((log, index) => (
                 <div key={index} className="card" style={{ marginBottom: "12px" }}>
                   <p><b>Ticket ID:</b> {log.ticketId}</p>
-                  <p><b>Participant:</b> {log.participant.name || log.participant.email}</p>
+                  <p><b>Participant:</b> {log.participant.displayName || log.participant.email}</p>
                   <p><b>Action:</b> {log.action}</p>
                   <p><b>Reason:</b> {log.reason}</p>
                   <p><b>Override By:</b> {log.overrideBy?.email}</p>
@@ -321,7 +321,7 @@ export default function AttendanceDashboard() {
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "start" }}>
                   <div style={{ flex: 1 }}>
                     <p style={{ margin: "0 0 8px 0" }}>
-                      <b>{reg.participant.name || reg.participant.email}</b>
+                      <b>{reg.participant.displayName || reg.participant.email}</b>
                       {reg.manualOverride && (
                         <span style={{
                           marginLeft: "8px",
@@ -408,7 +408,7 @@ export default function AttendanceDashboard() {
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "start" }}>
                   <div style={{ flex: 1 }}>
                     <p style={{ margin: "0 0 8px 0" }}>
-                      <b>{reg.participant.name || reg.participant.email}</b>
+                      <b>{reg.participant.displayName || reg.participant.email}</b>
                     </p>
                     <p style={{ margin: "4px 0", fontSize: "14px", color: "#6b7280" }}>
                       <b>Ticket ID:</b> {reg.ticketId}
