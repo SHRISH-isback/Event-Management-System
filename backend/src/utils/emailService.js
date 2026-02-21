@@ -52,6 +52,19 @@ const sendRegistrationEmail = async (to, emailData) => {
 
     const isMerch = eventType === "MERCH";
 
+    let qrAttachment = null;
+    let qrImgTag = `<p style="color:#888; font-style:italic;">QR code could not be generated. Please visit "My Events" to view your ticket.</p>`;
+    if (qrCodeDataUrl) {
+      const base64Data = qrCodeDataUrl.replace(/^data:image\/png;base64,/, "");
+      qrAttachment = {
+        filename: "qrcode.png",
+        content: Buffer.from(base64Data, "base64"),
+        cid: "qrcode@ticket",
+        contentType: "image/png",
+      };
+      qrImgTag = `<img src="cid:qrcode@ticket" alt="QR Code" style="max-width:250px;height:auto;display:block;margin:0 auto;" />`;
+    }
+
     const htmlContent = `
       <!DOCTYPE html>
       <html>
@@ -195,10 +208,7 @@ const sendRegistrationEmail = async (to, emailData) => {
           
           <div class="qr-code">
             <h3>${isMerch ? "Pickup QR Code" : "Entry QR Code"}</h3>
-            ${qrCodeDataUrl
-              ? `<img src="${qrCodeDataUrl}" alt="QR Code" />`
-              : `<p style="color:#888; font-style:italic;">QR code could not be generated. Please visit "My Events" to view your ticket.</p>`
-            }
+            ${qrImgTag}
             <p style="color: #666; margin-top: 10px;">
               ${isMerch 
                 ? "Show this QR code to collect your merchandise" 
@@ -236,6 +246,7 @@ const sendRegistrationEmail = async (to, emailData) => {
         ? `Purchase Confirmation: ${eventName} - Order #${ticketId}`
         : `Registration Confirmation: ${eventName} - Ticket #${ticketId}`,
       html: htmlContent,
+      attachments: qrAttachment ? [qrAttachment] : [],
     };
 
     const info = await transporter.sendMail(mailOptions);
@@ -418,6 +429,24 @@ const sendPaymentApprovalEmail = async (to, emailData) => {
     const { participantName, eventName, ticketId, qrCodeDataUrl, merchDetails, registrationFee } = emailData;
     const totalAmount = registrationFee * (merchDetails?.quantity || 1);
 
+    let qrAttachment = null;
+    let qrSection = '';
+    if (qrCodeDataUrl) {
+      const base64Data = qrCodeDataUrl.replace(/^data:image\/png;base64,/, "");
+      qrAttachment = {
+        filename: "qrcode.png",
+        content: Buffer.from(base64Data, "base64"),
+        cid: "qrcode@ticket",
+        contentType: "image/png",
+      };
+      qrSection = `
+        <div class="qr-code">
+          <h3>📱 Your Pickup QR Code</h3>
+          <img src="cid:qrcode@ticket" alt="Pickup QR Code" style="max-width:250px;height:auto;display:block;margin:0 auto;" />
+          <p style="color: #666; margin-top: 10px;">Show this QR code to collect your merchandise</p>
+        </div>`;
+    }
+
     const htmlContent = `
       <!DOCTYPE html>
       <html>
@@ -453,12 +482,7 @@ const sendPaymentApprovalEmail = async (to, emailData) => {
             <div class="info-row"><span class="info-label">Quantity:</span><span>${merchDetails.quantity}</span></div>
             <div class="info-row"><span class="info-label">Total Paid:</span><span>₹${totalAmount}</span></div>
           </div>` : ''}
-          ${qrCodeDataUrl ? `
-          <div class="qr-code">
-            <h3>📱 Your Pickup QR Code</h3>
-            <img src="${qrCodeDataUrl}" alt="Pickup QR Code" />
-            <p style="color: #666; margin-top: 10px;">Show this QR code to collect your merchandise</p>
-          </div>` : ''}
+          ${qrSection}
           <div class="note">
             <strong>📱 Important:</strong>
             <ul style="margin: 10px 0; padding-left: 20px;">
@@ -481,6 +505,7 @@ const sendPaymentApprovalEmail = async (to, emailData) => {
       to,
       subject: `✅ Order Confirmed: ${eventName} - Order #${ticketId}`,
       html: htmlContent,
+      attachments: qrAttachment ? [qrAttachment] : [],
     });
 
     console.log("Payment approval email sent:", info.messageId);
