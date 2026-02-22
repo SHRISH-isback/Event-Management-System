@@ -243,6 +243,7 @@ const checkRegistration = async (req, res) => {
     res.json({ 
       isRegistered: !!registration,
       registrationId: registration?._id,
+      paymentStatus: registration?.paymentStatus,
       event: registration?.event
     });
   } catch (err) {
