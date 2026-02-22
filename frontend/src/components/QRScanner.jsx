@@ -1,281 +1,220 @@
-import { useState, useRef, useCallback, useEffect } from "react";
-import Webcam from "react-webcam";
+import { useState, useRef, useEffect, useCallback } from "react";
 import jsQR from "jsqr";
 import api from "../api/axios";
 
 export default function QRScanner({ eventId, onScanSuccess }) {
   const [scanMode, setScanMode] = useState(null);
   const [message, setMessage] = useState("");
-  const [messageType, setMessageType] = useState("");
-  const webcamRef = useRef(null);
+  const [messageType, setMessageType] = useState("info");
+  const [cameraError, setCameraError] = useState("");
+
+  const videoRef = useRef(null);
+  const canvasRef = useRef(null);
+  const streamRef = useRef(null);
+  const rafRef = useRef(null);
+  const isProcessingRef = useRef(false);
   const fileInputRef = useRef(null);
-  const scanIntervalRef = useRef(null);
-  const isProcessingRef = useRef(false); 
-  const showMessage = (text, type) => {
-    setMessage(text);
-    setMessageType(type);
-  };
 
-  const clearMessageAfterDelay = (delay = 5000) => {
-    setTimeout(() => {
-      setMessage("");
-      setMessageType("");
-    }, delay);
-  };
-
-  const decodeQRFromCanvas = (canvas) => {
-    const ctx = canvas.getContext("2d");
-    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-    return jsQR(imageData.data, imageData.width, imageData.height, {
-      inversionAttempts: "dontInvert",
-    });
-  };
-
+  const showMsg = (text, type = "info") => { setMessage(text); setMessageType(type); };
+  const clearMsgAfter = (ms = 6000) => setTimeout(() => { setMessage(""); setMessageType("info"); }, ms);
   const processQRCode = useCallback(async (qrData) => {
     if (isProcessingRef.current) return;
     isProcessingRef.current = true;
-
-    showMessage("Processing QR code...", "info");
-
+    showMsg("Processing QR code...", "info");
     try {
       const response = await api.post("/attendance/scan", { qrData });
       const reg = response.data.registration;
-      showMessage(
-        ` ${response.data.message || "Attendance marked for " + (reg.participant?.displayName || reg.participant?.email)}`,
+      showMsg(
+         (response.data.message || `Attendance marked for ${reg.participant?.displayName || reg.participant?.email}`),
         "success"
       );
-      clearMessageAfterDelay(6000);
+      clearMsgAfter(7000);
       if (onScanSuccess) onScanSuccess(reg);
     } catch (error) {
-      const errorMessage = error.response?.data?.message || "Error scanning QR code";
-      if (errorMessage.toLowerCase().includes("already scanned")) {
-        showMessage(` ${errorMessage}`, "warning");
-      } else {
-        showMessage(` ${errorMessage}`, "error");
-      }
-      clearMessageAfterDelay(6000);
+      const msg = error.response?.data?.message || "Error scanning QR code";
+      showMsg(
+        msg.toLowerCase().includes("already scanned") ? ` ${msg}` : ` ${msg}`,
+        msg.toLowerCase().includes("already scanned") ? "warning" : "error"
+      );
+      clearMsgAfter(7000);
     } finally {
-      isProcessingRef.current = false;
+      setTimeout(() => { isProcessingRef.current = false; }, 2000);
     }
   }, [onScanSuccess]);
 
-  const captureAndScan = useCallback(() => {
-    if (isProcessingRef.current) return;
-    if (!webcamRef.current) return;
+  const scanFrame = useCallback(() => {
+    const video  = videoRef.current;
+    const canvas = canvasRef.current;
+    if (!video || !canvas) return;
 
-    const imageSrc = webcamRef.current.getScreenshot();
-    if (!imageSrc) return;
+    if (video.readyState < video.HAVE_ENOUGH_DATA || video.videoWidth === 0) {
+      rafRef.current = requestAnimationFrame(scanFrame);
+      return;
+    }
 
-    const img = new Image();
-    img.onload = () => {
-      const canvas = document.createElement("canvas");
-      canvas.width = img.naturalWidth || img.width;
-      canvas.height = img.naturalHeight || img.height;
-      const ctx = canvas.getContext("2d");
-      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-      const code = decodeQRFromCanvas(canvas);
+    canvas.width  = video.videoWidth;
+    canvas.height = video.videoHeight;
+    const ctx = canvas.getContext("2d", { willReadFrequently: true });
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+    if (!isProcessingRef.current) {
+      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const code = jsQR(imageData.data, imageData.width, imageData.height, {
+        inversionAttempts: "attemptBoth",
+      });
       if (code && code.data) {
-        stopScanning();
         processQRCode(code.data);
       }
-    };
-    img.src = imageSrc;
+    }
+
+    rafRef.current = requestAnimationFrame(scanFrame);
   }, [processQRCode]);
 
-  const stopScanning = () => {
-    if (scanIntervalRef.current) {
-      clearInterval(scanIntervalRef.current);
-      scanIntervalRef.current = null;
-    }
-    setScanMode(null);
-  };
+  const handleVideoPlay = useCallback(() => {
+    if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    rafRef.current = requestAnimationFrame(scanFrame);
+  }, [scanFrame]);
 
-  const startCameraScanning = () => {
-    isProcessingRef.current = false;
-    setScanMode("camera");
-    showMessage("Point camera at the QR code...", "info");
-  };
+  const startCamera = useCallback(async () => {
+    setCameraError("");
+    showMsg("Starting camera...", "info");
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: { ideal: "environment" },
+          width:  { ideal: 1280 },
+          height: { ideal: 720 },
+        },
+      });
+      streamRef.current = stream;
+      setScanMode("camera");
+    } catch (err) {
+      const msg =
+        err.name === "NotAllowedError"  ? "Camera permission denied. Please allow camera access in your browser settings and try again." :
+        err.name === "NotFoundError"    ? "No camera found on this device." :
+        err.name === "NotReadableError" ? "Camera is in use by another application. Close it and try again." :
+                                          `Camera error: ${err.message}`;
+      setCameraError(msg);
+      showMsg(msg, "error");
+    }
+  }, []);
 
   useEffect(() => {
-    if (scanMode === "camera") {
-      scanIntervalRef.current = setInterval(captureAndScan, 400);
+    if (scanMode === "camera" && videoRef.current && streamRef.current) {
+      videoRef.current.srcObject = streamRef.current;
+      videoRef.current.play().catch(() => {});
     }
-    return () => {
-      if (scanIntervalRef.current) {
-        clearInterval(scanIntervalRef.current);
-        scanIntervalRef.current = null;
-      }
-    };
-  }, [scanMode, captureAndScan]);
+  }, [scanMode]);
+
+  const stopCamera = useCallback(() => {
+    if (rafRef.current) { cancelAnimationFrame(rafRef.current); rafRef.current = null; }
+    if (streamRef.current) { streamRef.current.getTracks().forEach(t => t.stop()); streamRef.current = null; }
+    if (videoRef.current)  { videoRef.current.srcObject = null; }
+    isProcessingRef.current = false;
+    setScanMode(null);
+    setMessage("");
+  }, []);
+
+  useEffect(() => () => {
+    if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    if (streamRef.current) streamRef.current.getTracks().forEach(t => t.stop());
+  }, []);
 
   const handleFileUpload = (e) => {
     const file = e.target.files[0];
     if (!file) return;
     e.target.value = "";
-
-    showMessage("🔍 Reading QR code from image...", "info");
+    showMsg("🔍 Reading QR code from image...", "info");
 
     const reader = new FileReader();
     reader.onload = (evt) => {
       const img = new Image();
       img.onload = () => {
         const tryDecode = (scale) => {
-          const canvas = document.createElement("canvas");
-          canvas.width = img.naturalWidth * scale;
-          canvas.height = img.naturalHeight * scale;
-          const ctx = canvas.getContext("2d");
-          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-          return decodeQRFromCanvas(canvas);
+          const c = document.createElement("canvas");
+          c.width  = img.naturalWidth  * scale;
+          c.height = img.naturalHeight * scale;
+          const ctx = c.getContext("2d");
+          ctx.drawImage(img, 0, 0, c.width, c.height);
+          const id = ctx.getImageData(0, 0, c.width, c.height);
+          return jsQR(id.data, id.width, id.height, { inversionAttempts: "attemptBoth" });
         };
-
-        let code = tryDecode(1);
-        if (!code) code = tryDecode(2);   
-        if (!code) code = tryDecode(0.5); 
-        if (code && code.data) {
+        const code = tryDecode(1) || tryDecode(2) || tryDecode(0.5);
+        if (code) {
           processQRCode(code.data);
         } else {
-          showMessage(" No QR code detected in this image. Try a clearer photo or use camera scan.", "error");
-          clearMessageAfterDelay(6000);
+          showMsg("❌ No QR code found. Try a closer / clearer photo.", "error");
+          clearMsgAfter();
         }
       };
-      img.onerror = () => {
-        showMessage(" Could not load image file.", "error");
-        clearMessageAfterDelay(4000);
-      };
+      img.onerror = () => { showMsg("❌ Could not load the image file.", "error"); clearMsgAfter(4000); };
       img.src = evt.target.result;
     };
     reader.readAsDataURL(file);
   };
 
-  return (
-    <div style={{
-      backgroundColor: "#fff",
-      borderRadius: "12px",
-      padding: "24px",
-      boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
-      marginBottom: "20px",
-    }}>
-      <h3 style={{ marginTop: 0, marginBottom: "20px", color: "#1a1a1a" }}>
-        QR Code Scanner
-      </h3>
+  const msgStyle = {
+    padding: "12px 16px", borderRadius: "8px", marginBottom: "16px", fontWeight: "500",
+    backgroundColor: messageType==="success"?"#d1fae5": messageType==="error"?"#fee2e2": messageType==="warning"?"#fef3c7":"#dbeafe",
+    border: `1px solid ${messageType==="success"?"#86efac": messageType==="error"?"#fca5a5": messageType==="warning"?"#fcd34d":"#93c5fd"}`,
+    color:  messageType==="success"?"#065f46": messageType==="error"?"#991b1b": messageType==="warning"?"#92400e":"#1e40af",
+  };
 
-      {message && (
-        <div style={{
-          padding: "12px 16px",
-          borderRadius: "8px",
-          marginBottom: "16px",
-          backgroundColor: messageType === "success" ? "#d1fae5"
-                         : messageType === "error"   ? "#fee2e2"
-                         : messageType === "warning" ? "#fef3c7"
-                         :                            "#dbeafe",
-          border: `1px solid ${
-            messageType === "success" ? "#86efac"
-          : messageType === "error"   ? "#fca5a5"
-          : messageType === "warning" ? "#fcd34d"
-          :                            "#93c5fd"
-          }`,
-          color: messageType === "success" ? "#065f46"
-               : messageType === "error"   ? "#991b1b"
-               : messageType === "warning" ? "#92400e"
-               :                            "#1e40af",
-          fontWeight: "500",
-        }}>
-          {message}
+  return (
+    <div style={{ backgroundColor:"#fff", borderRadius:"12px", padding:"24px", boxShadow:"0 2px 8px rgba(0,0,0,0.1)", marginBottom:"20px" }}>
+      <h3 style={{ marginTop:0, marginBottom:"20px", color:"#1a1a1a" }}>QR Code Scanner</h3>
+
+      {message    && <div style={msgStyle}>{message}</div>}
+      {cameraError && !scanMode && (
+        <div style={{ padding:"12px", backgroundColor:"#fee2e2", border:"1px solid #fca5a5", borderRadius:"8px", marginBottom:"16px", color:"#991b1b", fontSize:"14px" }}>
+          {cameraError}
         </div>
       )}
 
+      {/* ── idle: show buttons ── */}
       {!scanMode && (
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" }}>
-          <button
-            onClick={startCameraScanning}
-            style={{
-              padding: "16px",
-              backgroundColor: "#3b82f6",
-              color: "white",
-              border: "none",
-              borderRadius: "8px",
-              cursor: "pointer",
-              fontSize: "16px",
-              fontWeight: "500",
-            }}
-          >
+        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:"16px" }}>
+          <button onClick={startCamera}
+            style={{ padding:"16px", backgroundColor:"#3b82f6", color:"white", border:"none", borderRadius:"8px", cursor:"pointer", fontSize:"16px", fontWeight:"500" }}>
             Scan with Camera
           </button>
-
-          <button
-            onClick={() => fileInputRef.current?.click()}
-            style={{
-              padding: "16px",
-              backgroundColor: "#10b981",
-              color: "white",
-              border: "none",
-              borderRadius: "8px",
-              cursor: "pointer",
-              fontSize: "16px",
-              fontWeight: "500",
-            }}
-          >
+          <button onClick={() => fileInputRef.current?.click()}
+            style={{ padding:"16px", backgroundColor:"#10b981", color:"white", border:"none", borderRadius:"8px", cursor:"pointer", fontSize:"16px", fontWeight:"500" }}>
             Upload QR Image
           </button>
-
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*"
-            onChange={handleFileUpload}
-            style={{ display: "none" }}
-          />
+          <input ref={fileInputRef} type="file" accept="image/*" onChange={handleFileUpload} style={{ display:"none" }} />
         </div>
       )}
 
+      {/* ── camera view ── */}
       {scanMode === "camera" && (
         <div>
-          <div style={{
-            position: "relative",
-            width: "100%",
-            maxWidth: "500px",
-            margin: "0 auto",
-            borderRadius: "8px",
-            overflow: "hidden",
-            border: "2px solid #3b82f6",
-          }}>
-            <Webcam
-              ref={webcamRef}
-              audio={false}
-              screenshotFormat="image/jpeg"
-              screenshotQuality={0.92}
-              videoConstraints={{ facingMode: "environment", width: 1280, height: 720 }}
-              style={{ width: "100%", height: "auto", display: "block" }}
+          <div style={{ position:"relative", width:"100%", maxWidth:"500px", margin:"0 auto", borderRadius:"8px", overflow:"hidden", border:"2px solid #3b82f6", backgroundColor:"#000" }}>
+            <video
+              ref={videoRef}
+              onPlay={handleVideoPlay}
+              playsInline
+              muted
+              style={{ width:"100%", height:"auto", display:"block" }}
             />
-            {/* Targeting overlay */}
+            {/* hidden canvas for decoding */}
+            <canvas ref={canvasRef} style={{ display:"none" }} />
+            {/* semi-transparent overlay with cut-out box */}
             <div style={{
-              position: "absolute",
-              top: "50%", left: "50%",
-              transform: "translate(-50%, -50%)",
-              width: "200px", height: "200px",
-              border: "3px solid #3b82f6",
-              borderRadius: "12px",
-              boxShadow: "0 0 0 9999px rgba(0,0,0,0.35)",
-              pointerEvents: "none",
-            }} />
+              position:"absolute", top:"50%", left:"50%",
+              transform:"translate(-50%,-50%)",
+              width:"200px", height:"200px",
+              border:"3px solid #3b82f6", borderRadius:"12px",
+              boxShadow:"0 0 0 9999px rgba(0,0,0,0.45)",
+              pointerEvents:"none",
+            }}/>
           </div>
-
-          <button
-            onClick={stopScanning}
-            style={{
-              marginTop: "16px",
-              padding: "12px 24px",
-              backgroundColor: "#ef4444",
-              color: "white",
-              border: "none",
-              borderRadius: "8px",
-              cursor: "pointer",
-              fontSize: "14px",
-              fontWeight: "500",
-              width: "100%",
-            }}
-          >
-            ✕ Stop Scanning
+          <p style={{ textAlign:"center", color:"#6b7280", fontSize:"13px", margin:"10px 0 0" }}>
+            Hold the QR code steady inside the blue box
+          </p>
+          <button onClick={stopCamera}
+            style={{ marginTop:"12px", padding:"12px 24px", backgroundColor:"#ef4444", color:"white", border:"none", borderRadius:"8px", cursor:"pointer", fontSize:"14px", fontWeight:"500", width:"100%" }}>
+            ✕ Stop Camera
           </button>
         </div>
       )}
