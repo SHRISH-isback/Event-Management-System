@@ -264,7 +264,7 @@ export default function MerchandiseOrders() {
                 </p>
               </div>
 
-              {order.paymentProof && (
+              {order.paymentProof ? (
                 <div style={{ marginBottom: "15px" }}>
                   <button
                     onClick={() => handleViewImage(order)}
@@ -280,20 +280,25 @@ export default function MerchandiseOrders() {
                     View Payment Proof
                   </button>
                 </div>
+              ) : (
+                <div style={{ padding: "10px", background: "#fff3cd", borderRadius: "5px", marginBottom: "15px", color: "#856404", fontSize: "13px" }}>
+                  No payment proof uploaded yet
+                </div>
               )}
 
-              {order.paymentStatus === "PENDING" && order.paymentProof && (
+              {order.paymentStatus === "PENDING" && (
                 <div style={{ display: "flex", gap: "10px" }}>
                   <button
                     onClick={() => handleApprove(order._id)}
-                    disabled={actionLoading}
+                    disabled={actionLoading || !order.paymentProof}
+                    title={!order.paymentProof ? "Cannot approve: no payment proof uploaded" : "Approve this payment"}
                     style={{
                       padding: "10px 20px",
                       borderRadius: "5px",
                       border: "none",
-                      background: actionLoading ? "#ccc" : "#28a745",
+                      background: actionLoading || !order.paymentProof ? "#ccc" : "#28a745",
                       color: "white",
-                      cursor: actionLoading ? "not-allowed" : "pointer",
+                      cursor: actionLoading || !order.paymentProof ? "not-allowed" : "pointer",
                       fontWeight: "bold",
                     }}
                   >

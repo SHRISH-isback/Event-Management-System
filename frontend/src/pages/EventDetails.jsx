@@ -13,6 +13,7 @@ export default function EventDetails() {
     const [registrationCount, setRegistrationCount] = useState(0);
     const [isRegistered, setIsRegistered] = useState(false);
     const [registrationId, setRegistrationId] = useState(null);
+    const [paymentStatus, setPaymentStatus] = useState(null);
     const [showQRModal, setShowQRModal] = useState(false);
     const [qrCodeData, setQrCodeData] = useState(null);
     const [ticketId, setTicketId] = useState(null);
@@ -47,6 +48,7 @@ export default function EventDetails() {
                         const regRes = await api.get(`/registrations/check/${eventId}`);
                         setIsRegistered(regRes.data.isRegistered);
                         setRegistrationId(regRes.data.registrationId);
+                        setPaymentStatus(regRes.data.paymentStatus);
                     } catch (err) {}
                 }
 
@@ -92,6 +94,7 @@ export default function EventDetails() {
             setIsRegistered(true);
             setRegistrationCount(prev => prev + 1);
             setRegistrationId(res.data.registrationId);
+            setPaymentStatus(res.data.paymentStatus || null);
             setTicketId(res.data.ticketId);
             setShowCustomFormModal(false);
 
@@ -128,13 +131,28 @@ export default function EventDetails() {
 
             const newRegistrationId = orderRes.data.registrationId;
 
-            await api.post(`/registrations/payment-proof/${newRegistrationId}`, {
-                paymentProof: paymentProofFile,
-            });
+            try {
+                await api.post(`/registrations/payment-proof/${newRegistrationId}`, {
+                    paymentProof: paymentProofFile,
+                });
+            } catch (proofErr) {
+                // Order was created but proof upload failed — tell user to go to My Events to upload
+                setIsRegistered(true);
+                setRegistrationCount(prev => prev + 1);
+                setRegistrationId(newRegistrationId);
+                setPaymentStatus("PENDING");
+                setShowPurchaseModal(false);
+                setError(
+                    "Order was placed but payment proof upload failed (image may be too large). " +
+                    "Please go to My Events and upload your payment proof there."
+                );
+                return;
+            }
 
             setIsRegistered(true);
             setRegistrationCount(prev => prev + 1);
             setRegistrationId(newRegistrationId);
+            setPaymentStatus("PENDING");
             setShowPurchaseModal(false);
             setMerchOrderDetails({
                 ticketId: orderRes.data.ticketId,
@@ -620,9 +638,19 @@ export default function EventDetails() {
                         Orders Closed
                     </button>
                 )}
-                {role === "PARTICIPANT" && event.type === "MERCH" && isRegistered && (
-                    <button className="btn" disabled style={{ flex: "1 1 auto", opacity: 0.7, cursor: "not-allowed", backgroundColor: "#6b7280" }}>
-                        Order Submitted — Awaiting Approval
+                {role === "PARTICIPANT" && event.type === "MERCH" && isRegistered && paymentStatus === "APPROVED" && (
+                    <button className="btn" disabled style={{ flex: "1 1 auto", opacity: 0.7, cursor: "not-allowed", backgroundColor: "#28a745" }}>
+                        Order Confirmed
+                    </button>
+                )}
+                {role === "PARTICIPANT" && event.type === "MERCH" && isRegistered && paymentStatus === "PENDING" && (
+                    <button className="btn" disabled style={{ flex: "1 1 auto", opacity: 0.7, cursor: "not-allowed", backgroundColor: "#f59e0b" }}>
+                        Awaiting Payment Approval
+                    </button>
+                )}
+                {role === "PARTICIPANT" && event.type === "MERCH" && isRegistered && paymentStatus === "REJECTED" && (
+                    <button className="btn" onClick={() => navigate("/my-events")} style={{ flex: "1 1 auto", backgroundColor: "#dc2626" }}>
+                        Payment Rejected — Re-upload in My Events
                     </button>
                 )}
 
@@ -659,7 +687,24 @@ export default function EventDetails() {
             )}
 
             {(role === "PARTICIPANT" && isRegistered) || role === "ORGANIZER" ? (
-                <DiscussionForum eventId={eventId} />
+                <>
+                    {event.type === "MERCH" && role === "PARTICIPANT" && paymentStatus && paymentStatus !== "APPROVED" && (
+                        <div style={{
+                            padding: "10px 14px",
+                            backgroundColor: paymentStatus === "REJECTED" ? "#fee2e2" : "#fef9c3",
+                            border: `1px solid ${paymentStatus === "REJECTED" ? "#fca5a5" : "#fde68a"}`,
+                            borderRadius: "8px",
+                            marginBottom: "10px",
+                            fontSize: "13px",
+                            color: paymentStatus === "REJECTED" ? "#991b1b" : "#92400e",
+                        }}>
+                            {paymentStatus === "REJECTED"
+                                ? "Your order payment was rejected. You can still participate in the discussion."
+                                : "Your order is pending approval. You can still participate in the discussion."}
+                        </div>
+                    )}
+                    <DiscussionForum eventId={eventId} />
+                </>
             ) : null}
         </div>
     );

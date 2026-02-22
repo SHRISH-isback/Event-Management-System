@@ -487,7 +487,7 @@ export default function MyEvents() {
                 </button>
               )}
 
-              {/* Re-upload payment proof — only after rejection */}
+              {/* Re-upload payment proof — after rejection */}
               {reg.event.type === "MERCH" && reg.paymentStatus === "REJECTED" && (
                 <button
                   onClick={() => handleUploadPaymentProof(reg)}
@@ -508,8 +508,32 @@ export default function MyEvents() {
                     minWidth: "190px",
                   }}
                 >
-                  <span>�</span>
-                  Re-upload Payment Proof
+                  🔄 Re-upload Payment Proof
+                </button>
+              )}
+
+              {/* Upload proof for PENDING orders with no proof yet */}
+              {reg.event.type === "MERCH" && reg.paymentStatus === "PENDING" && !reg.paymentProof && (
+                <button
+                  onClick={() => handleUploadPaymentProof(reg)}
+                  style={{
+                    flex: 1,
+                    padding: "12px 20px",
+                    backgroundColor: "#f59e0b",
+                    color: "#fff",
+                    border: "none",
+                    borderRadius: "8px",
+                    cursor: "pointer",
+                    fontSize: "14px",
+                    fontWeight: "600",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: "8px",
+                    minWidth: "190px",
+                  }}
+                >
+                  📤 Upload Payment Proof
                 </button>
               )}
 
