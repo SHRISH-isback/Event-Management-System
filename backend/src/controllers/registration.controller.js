@@ -4,7 +4,7 @@ const User = require("../models/User");
 const Participant = require("../models/Participant");
 const Organizer = require("../models/Organizer");
 const crypto = require("crypto");
-const { sendRegistrationEmail, sendOrderPlacedEmail, sendPaymentApprovalEmail, sendPaymentRejectionEmail } = require("../utils/emailService");
+const { sendRegistrationEmail, sendPaymentApprovalEmail, sendPaymentRejectionEmail } = require("../utils/emailService");
 const { generateQRCode, createTicketData } = require("../utils/qrCodeService");
 const { 
   generateICSFile, 
@@ -24,38 +24,43 @@ const registerForEvent = async (req, res) => {
       return res.status(400).json({ message: "Event not available" });
     }
 
-    if (event.registrationDeadline) {
-      if (new Date() > event.registrationDeadline) {
-        return res.status(400).json({ message: "Registration closed" });
-      }
+    if (event.registrationDeadline && new Date() > event.registrationDeadline) {
+      return res.status(400).json({ message: "Registration closed" });
     }
 
-    const alreadyRegistered = await Registration.findOne({
-      participant: participantId,
-      event: eventId,
-    });
-
+    const alreadyRegistered = await Registration.findOne({ participant: participantId, event: eventId });
     if (alreadyRegistered) {
       return res.status(400).json({ message: "Already registered" });
     }
 
+    if (event.type === "MERCH") {
+      if (!size || !color || !quantity) {
+        return res.status(400).json({ message: "Size, color, and quantity are required for merchandise orders" });
+      }
+      if (quantity > event.purchaseLimit) {
+        return res.status(400).json({ message: `Maximum purchase limit is ${event.purchaseLimit} items` });
+      }
+      const variant = event.merchVariants.find(v => v.size === size && v.color === color);
+      if (!variant) {
+        return res.status(400).json({ message: "Selected size and color combination is not available" });
+      }
+      const availableStock = variant.stock - variant.sold;
+      if (availableStock < quantity) {
+        return res.status(400).json({ message: `Only ${availableStock} items available in stock` });
+      }
+    }
+
     if (event.type === "NORMAL" && event.customFields && event.customFields.length > 0) {
       const validationErrors = [];
-      
       for (const field of event.customFields) {
         const response = formResponses?.[field.label];
-        
         if (field.required && (!response || response === "")) {
           validationErrors.push(`${field.label} is required`);
           continue;
         }
-
-        if (field.type === "dropdown" && response) {
-          if (!field.options.includes(response)) {
-            validationErrors.push(`Invalid value for ${field.label}`);
-          }
+        if (field.type === "dropdown" && response && !field.options.includes(response)) {
+          validationErrors.push(`Invalid value for ${field.label}`);
         }
-        
         if (field.type === "checkbox" && response) {
           const selectedOptions = Array.isArray(response) ? response : [response];
           for (const option of selectedOptions) {
@@ -65,73 +70,28 @@ const registerForEvent = async (req, res) => {
           }
         }
       }
-
       if (validationErrors.length > 0) {
-        return res.status(400).json({ 
-          message: "Form validation failed", 
-          errors: validationErrors 
-        });
+        return res.status(400).json({ message: "Form validation failed", errors: validationErrors });
       }
-
       if (!event.formLocked) {
         event.formLocked = true;
         await event.save();
       }
     }
 
-    if (event.type === "MERCH") {
-      if (size || color || quantity) {
-        if (!size || !color || !quantity) {
-          return res.status(400).json({ 
-            message: "Size, color, and quantity are required when purchasing merchandise" 
-          });
-        }
-
-        if (quantity > event.purchaseLimit) {
-          return res.status(400).json({ 
-            message: `Maximum purchase limit is ${event.purchaseLimit} items` 
-          });
-        }
-
-        const variant = event.merchVariants.find(
-          v => v.size === size && v.color === color
-        );
-
-        if (!variant) {
-          return res.status(400).json({ 
-            message: "Selected size and color combination is not available" 
-          });
-        }
-
-        const availableStock = variant.stock - variant.sold;
-        if (availableStock < quantity) {
-          return res.status(400).json({ 
-            message: `Only ${availableStock} items available in stock` 
-          });
-        }
-      }
-    }
-
     if (event.registrationLimit) {
-      const count = await Registration.countDocuments({
-        event: eventId,
-        status: "REGISTERED",
-      });
-
+      const count = await Registration.countDocuments({ event: eventId, status: "REGISTERED" });
       if (count >= event.registrationLimit) {
         return res.status(400).json({ message: "Event is full" });
       }
     }
 
     const ticketId = crypto.randomBytes(6).toString("hex");
+    const registrationData = { participant: participantId, event: eventId, ticketId };
 
-    const registrationData = {
-      participant: participantId,
-      event: eventId,
-      ticketId,
-    };
-
-    if (event.type === "MERCH" && size && color && quantity) {
+    if (event.type === "MERCH") {
+      // Do NOT decrement stock yet — stock is only decremented upon organizer approval.
+      // Stock is validated above to ensure availability.
       registrationData.merchDetails = { size, color, quantity };
       registrationData.paymentStatus = "PENDING";
       registrationData.orderSuccessful = false;
@@ -141,103 +101,58 @@ const registerForEvent = async (req, res) => {
       registrationData.formResponses = formResponses;
     }
 
-    if (event.type === "MERCH" && size && color && quantity) {
-      const variant = event.merchVariants.find(
-        v => v.size === size && v.color === color
-      );
-      const availableStock = variant.stock - variant.sold;
-      if (availableStock < quantity) {
-        return res.status(400).json({
-          message: `Only ${availableStock} items available in stock`,
-        });
-      }
-      variant.sold += quantity;
-      await event.save();
-    }
-
     const registration = await Registration.create(registrationData);
-    const isMerchOrder = event.type === "MERCH" && size && color && quantity;
 
-    let qrCodeDataUrl = null;
-    if (!isMerchOrder) {
+    if (event.type === "NORMAL") {
+      let qrCodeDataUrl = null;
       try {
         const ticketData = createTicketData(registration, event);
         qrCodeDataUrl = await generateQRCode(ticketData);
       } catch (qrError) {
-        console.error('Failed to generate QR code:', qrError);
+        console.error("Failed to generate QR code:", qrError);
       }
-    }
 
-    try {
-      const user = await User.findById(participantId);
-      const participant = await Participant.findOne({ user: participantId });
-      const participantName = (participant?.firstName && participant?.lastName)
-        ? `${participant.firstName} ${participant.lastName}`
-        : participant?.firstName || user.email.split("@")[0];
+      try {
+        const user = await User.findById(participantId);
+        const participant = await Participant.findOne({ user: participantId });
+        const participantName = (participant?.firstName && participant?.lastName)
+          ? `${participant.firstName} ${participant.lastName}`
+          : participant?.firstName || user.email.split("@")[0];
 
-      if (isMerchOrder) {
-        await sendOrderPlacedEmail(user.email, {
-          participantName,
-          eventName: event.name,
-          ticketId: registration.ticketId,
-          merchDetails: registration.merchDetails,
-          registrationFee: event.registrationFee,
-        });
-        console.log(`✅ Order-placed email sent to: ${user.email}`);
-      } else {
-        if (!qrCodeDataUrl) {
-          console.error('❌ Skipping registration email: QR code generation failed');
-        } else {
-          const emailData = {
+        if (qrCodeDataUrl) {
+          await sendRegistrationEmail(user.email, {
             participantName,
             eventName: event.name,
             eventDate: event.startDate
-              ? new Date(event.startDate).toLocaleDateString("en-US", {
-                  weekday: "long",
-                  year: "numeric",
-                  month: "long",
-                  day: "numeric",
-                })
+              ? new Date(event.startDate).toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" })
               : "TBA",
             eventTime: event.startDate
-              ? new Date(event.startDate).toLocaleTimeString("en-US", {
-                  hour: "2-digit",
-                  minute: "2-digit",
-                })
+              ? new Date(event.startDate).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })
               : "TBA",
             eventLocation: event.location || "TBA",
             ticketId: registration.ticketId,
             qrCodeDataUrl,
             eventType: event.type,
-            merchDetails: registration.merchDetails,
-          };
-          await sendRegistrationEmail(user.email, emailData);
-          console.log(`✅ Registration email sent to: ${user.email}`);
+          });
+          console.log(`Registration email sent to: ${user.email}`);
         }
+      } catch (emailError) {
+        console.error("Failed to send registration email:", emailError.message);
       }
-    } catch (emailError) {
-      console.error('❌ Failed to send registration email:', emailError.message);
-      console.error('Email config check:', {
-        host: process.env.EMAIL_HOST,
-        port: process.env.EMAIL_PORT,
-        user: process.env.EMAIL_USER,
-        hasPassword: !!process.env.EMAIL_PASSWORD,
+
+      return res.status(201).json({
+        message: "Registered successfully",
+        ticketId: registration.ticketId,
+        registrationId: registration._id,
+        qrCode: qrCodeDataUrl,
       });
     }
 
-    let responseMessage = "Registered successfully";
-    if (isMerchOrder) {
-      responseMessage = "Order placed successfully. Please upload payment proof to confirm your order.";
-    }
-
     res.status(201).json({
-      message: responseMessage,
+      message: "Order submitted. Awaiting organizer payment approval.",
       ticketId: registration.ticketId,
       registrationId: registration._id,
-      merchDetails: registration.merchDetails,
-      qrCode: isMerchOrder ? null : qrCodeDataUrl,
-      paymentStatus: isMerchOrder ? "PENDING" : undefined,
-      requiresPaymentProof: isMerchOrder,
+      paymentStatus: "PENDING",
     });
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -255,7 +170,6 @@ const getMyRegistrations = async (req, res) => {
       .populate("event", "name description startDate endDate organizer type registrationFee merchVariants availableSizes availableColors purchaseLimit")
       .sort({ createdAt: -1 });
 
-    // Include all fields needed by the frontend (paymentStatus, paymentProof, etc. come from the document itself)
     const registrationsWithDetails = registrations.map(reg => reg.toObject());
     console.log(`Found ${registrations.length} registrations`);
     res.json(registrationsWithDetails);
@@ -362,9 +276,11 @@ const verifyTicket = async (req, res) => {
     }
 
     const response = {
-      valid: registration.status === "REGISTERED",
+      valid: registration.status === "REGISTERED" &&
+             (registration.event.type !== "MERCH" || registration.paymentStatus === "APPROVED"),
       ticketId: registration.ticketId,
       status: registration.status,
+      paymentStatus: registration.paymentStatus,
       event: {
         name: registration.event.name,
         startDate: registration.event.startDate,
@@ -466,9 +382,9 @@ const resendConfirmationEmail = async (req, res) => {
 
     try {
       await sendRegistrationEmail(user.email, emailData);
-      console.log('✅ Confirmation email sent');
+      console.log('Confirmation email sent');
     } catch (emailError) {
-      console.error('❌ Failed to send email:', emailError);
+      console.error('Failed to send email:', emailError);
     }
 
     res.json({ 
@@ -476,7 +392,7 @@ const resendConfirmationEmail = async (req, res) => {
       qrCode: qrCodeDataUrl 
     });
   } catch (err) {
-    console.error('❌ Error in resendConfirmationEmail:', err);
+    console.error('Error in resendConfirmationEmail:', err);
     res.status(500).json({ message: err.message });
   }
 };
@@ -620,35 +536,20 @@ const uploadPaymentProof = async (req, res) => {
     }
 
     registration.paymentProof = paymentProof;
-    // If previously rejected, reset to PENDING for re-review and re-reserve stock
     if (registration.paymentStatus === "REJECTED") {
-      const event = registration.event;
-      const variant = event.merchVariants.find(
-        v => v.size === registration.merchDetails.size &&
-             v.color === registration.merchDetails.color
-      );
-      if (variant && registration.merchDetails?.quantity) {
-        const availableStock = variant.stock - variant.sold;
-        if (availableStock < registration.merchDetails.quantity) {
-          return res.status(400).json({
-            message: `Cannot re-submit: only ${availableStock} items are now available in stock. Please contact the organizer.`,
-          });
-        }
-        variant.sold += registration.merchDetails.quantity;
-        await event.save();
-      }
+      // Reset back to PENDING so organizer can re-review. No stock change needed.
       registration.paymentStatus = "PENDING";
       registration.paymentRejectionReason = undefined;
     }
     await registration.save();
 
-    res.json({ 
-      message: "Payment proof uploaded successfully. Your order is now pending approval.",
+    res.json({
+      message: "Payment proof uploaded. Awaiting organizer approval.",
       registration: {
         _id: registration._id,
         paymentStatus: registration.paymentStatus,
-        paymentProof: registration.paymentProof
-      }
+        paymentProof: registration.paymentProof,
+      },
     });
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -722,15 +623,32 @@ const approvePayment = async (req, res) => {
     registration.orderSuccessful = true;
     registration.paymentApprovedBy = req.user.id;
     registration.paymentApprovedAt = new Date();
+
+    // Decrement stock on approval
+    const variant = event.merchVariants.find(
+      v => v.size === registration.merchDetails.size &&
+           v.color === registration.merchDetails.color
+    );
+    if (variant && registration.merchDetails?.quantity) {
+      const availableStock = variant.stock - variant.sold;
+      if (availableStock < registration.merchDetails.quantity) {
+        return res.status(400).json({ 
+          message: `Cannot approve: only ${availableStock} items are now available in stock.` 
+        });
+      }
+      variant.sold += registration.merchDetails.quantity;
+      await event.save();
+    }
+
     await registration.save();
 
     let qrCodeDataUrl = null;
     try {
       const ticketData = createTicketData(registration, event);
       qrCodeDataUrl = await generateQRCode(ticketData);
-      console.log('✅ QR code generated for approved merch order');
+      console.log('QR code generated for approved merch order');
     } catch (qrError) {
-      console.error('❌ QR code generation failed:', qrError);
+      console.error('QR code generation failed:', qrError);
     }
 
     try {
@@ -749,9 +667,9 @@ const approvePayment = async (req, res) => {
         merchDetails: registration.merchDetails,
         registrationFee: event.registrationFee,
       });
-      console.log('✅ Payment approval email sent');
+      console.log('Payment approval email sent');
     } catch (emailError) {
-      console.error('❌ Failed to send approval email:', emailError.message);
+      console.error('Failed to send approval email:', emailError.message);
     }
 
     res.json({ 
@@ -786,7 +704,6 @@ const rejectPayment = async (req, res) => {
 
     const event = registration.event;
 
-    // Verify the organizer owns this event
     const organizerId = req.user.organizerId;
     if (!organizerId || event.organizer.toString() !== organizerId.toString()) {
       return res.status(403).json({ message: "Not authorized" });
@@ -798,22 +715,13 @@ const rejectPayment = async (req, res) => {
       });
     }
 
-    // Release the stock reservation that was made at order-placement time.
-    const variant = event.merchVariants.find(
-      v => v.size === registration.merchDetails.size &&
-           v.color === registration.merchDetails.color
-    );
-    if (variant && registration.merchDetails?.quantity) {
-      variant.sold = Math.max(0, variant.sold - registration.merchDetails.quantity);
-      await event.save();
-    }
+    // No stock to restore — stock is only decremented on approval, not on submission.
 
     registration.paymentStatus = "REJECTED";
     registration.paymentRejectionReason = reason;
     registration.orderSuccessful = false;
     await registration.save();
 
-    // Send rejection email to participant
     try {
       await registration.populate("participant");
       const user = await User.findById(registration.participant._id || registration.participant);
@@ -830,9 +738,9 @@ const rejectPayment = async (req, res) => {
         reason,
         merchDetails: registration.merchDetails,
       });
-      console.log('✅ Payment rejection email sent');
+      console.log('Payment rejection email sent');
     } catch (emailError) {
-      console.error('❌ Failed to send rejection email:', emailError.message);
+      console.error('Failed to send rejection email:', emailError.message);
     }
 
     res.json({ 
@@ -862,5 +770,5 @@ module.exports = {
   uploadPaymentProof,
   getPendingMerchOrders,
   approvePayment,
-  rejectPayment
+  rejectPayment,
 };

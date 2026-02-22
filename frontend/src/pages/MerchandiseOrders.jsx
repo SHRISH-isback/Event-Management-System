@@ -106,8 +106,7 @@ export default function MerchandiseOrders() {
     return <div className="container">Loading orders...</div>;
   }
 
-  const pendingOrders = orders.filter((o) => o.paymentStatus === "PENDING" && o.paymentProof);
-  const awaitingProofOrders = orders.filter((o) => o.paymentStatus === "PENDING" && !o.paymentProof);
+  const pendingOrders = orders.filter((o) => o.paymentStatus === "PENDING");
   const approvedOrders = orders.filter((o) => o.paymentStatus === "APPROVED");
   const rejectedOrders = orders.filter((o) => o.paymentStatus === "REJECTED");
 
@@ -115,8 +114,6 @@ export default function MerchandiseOrders() {
     switch (activeTab) {
       case "pending":
         return pendingOrders;
-      case "awaiting":
-        return awaitingProofOrders;
       case "approved":
         return approvedOrders;
       case "rejected":
@@ -130,17 +127,14 @@ export default function MerchandiseOrders() {
 
   const getStatusBadge = (order) => {
     let label, style;
-    if (order.paymentStatus === "PENDING" && !order.paymentProof) {
-      label = "⏳ Awaiting Proof";
-      style = { background: "#6b7280", color: "#fff" };
-    } else if (order.paymentStatus === "PENDING" && order.paymentProof) {
-      label = "🔍 Pending Approval";
+    if (order.paymentStatus === "PENDING") {
+      label = "Pending Approval";
       style = { background: "#f59e0b", color: "#fff" };
     } else if (order.paymentStatus === "APPROVED") {
-      label = "✅ Approved";
+      label = "Approved";
       style = { background: "#28a745", color: "#fff" };
     } else if (order.paymentStatus === "REJECTED") {
-      label = "❌ Rejected";
+      label = "Rejected";
       style = { background: "#dc3545", color: "#fff" };
     } else {
       label = order.paymentStatus;
@@ -164,7 +158,7 @@ export default function MerchandiseOrders() {
 
   return (
     <div className="container" style={{ padding: "20px" }}>
-      <h1 style={{ marginBottom: "8px" }}>🛍️ Merchandise Orders</h1>
+      <h1 style={{ marginBottom: "8px" }}>Merchandise Orders</h1>
       <p style={{ color: "#6b7280", marginBottom: "24px" }}>
         Review and manage payment proofs for merchandise orders
       </p>
@@ -182,21 +176,7 @@ export default function MerchandiseOrders() {
             fontWeight: "bold",
           }}
         >
-          ⏳ Pending Approval ({pendingOrders.length})
-        </button>
-        <button
-          onClick={() => setActiveTab("awaiting")}
-          style={{
-            padding: "10px 20px",
-            borderRadius: "5px",
-            border: "none",
-            background: activeTab === "awaiting" ? "#6b7280" : "#e9ecef",
-            color: activeTab === "awaiting" ? "white" : "#000",
-            cursor: "pointer",
-            fontWeight: "bold",
-          }}
-        >
-          📭 Awaiting Proof ({awaitingProofOrders.length})
+          Pending Approval ({pendingOrders.length})
         </button>
         <button
           onClick={() => setActiveTab("approved")}
@@ -210,7 +190,7 @@ export default function MerchandiseOrders() {
             fontWeight: "bold",
           }}
         >
-          ✅ Approved ({approvedOrders.length})
+          Approved ({approvedOrders.length})
         </button>
         <button
           onClick={() => setActiveTab("rejected")}
@@ -224,13 +204,12 @@ export default function MerchandiseOrders() {
             fontWeight: "bold",
           }}
         >
-          ❌ Rejected ({rejectedOrders.length})
+         Rejected ({rejectedOrders.length})
         </button>
       </div>
 
       {filteredOrders.length === 0 ? (
         <div style={{ textAlign: "center", padding: "40px", color: "#666" }}>
-          {activeTab === "awaiting" && "No orders awaiting payment proof upload."}
           {activeTab === "pending" && "No orders pending approval."}
           {activeTab === "approved" && "No approved orders yet."}
           {activeTab === "rejected" && "No rejected orders."}
@@ -335,12 +314,6 @@ export default function MerchandiseOrders() {
                   >
                     Reject
                   </button>
-                </div>
-              )}
-
-              {order.paymentStatus === "PENDING" && !order.paymentProof && (
-                <div style={{ padding: "10px", background: "#fff3cd", borderRadius: "5px", color: "#856404" }}>
-                  Awaiting payment proof from customer
                 </div>
               )}
 

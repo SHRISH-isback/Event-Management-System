@@ -15,7 +15,7 @@ const {
   uploadPaymentProof,
   getPendingMerchOrders,
   approvePayment,
-  rejectPayment
+  rejectPayment,
 } = require("../controllers/registration.controller");
 const { requireAuth, requireRole } = require("../middleware/auth");
 

@@ -99,7 +99,6 @@ export default function EventRegistrations() {
 
   return (
     <div style={{ maxWidth: "1100px", margin: "0 auto", padding: "24px 16px" }}>
-      {/* Header */}
       <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "8px" }}>
         <button
           onClick={() => navigate(-1)}
@@ -130,18 +129,6 @@ export default function EventRegistrations() {
             </p>
           )}
         </div>
-        <div style={{ marginLeft: "auto", display: "flex", gap: "10px" }}>
-          <button
-            onClick={() => navigate(`/attendance/${eventId}`)}
-            style={{
-              padding: "8px 16px", background: "#3b82f6", color: "white",
-              border: "none", borderRadius: "8px", cursor: "pointer",
-              fontSize: "14px", fontWeight: 500,
-            }}
-          >
-            📊 Attendance Dashboard
-          </button>
-        </div>
       </div>
 
       {loading && (
@@ -160,7 +147,6 @@ export default function EventRegistrations() {
 
       {!loading && !error && (
         <>
-          {/* Stats */}
           <div style={{
             display: "grid",
             gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
@@ -182,7 +168,6 @@ export default function EventRegistrations() {
             />
           </div>
 
-          {/* Filters */}
           <div style={{
             display: "flex", gap: "10px", flexWrap: "wrap", marginBottom: "16px",
             alignItems: "center",
@@ -229,7 +214,6 @@ export default function EventRegistrations() {
             </span>
           </div>
 
-          {/* Table */}
           {filtered.length === 0 ? (
             <div style={{
               textAlign: "center", padding: "48px", color: "#9ca3af",
@@ -239,7 +223,6 @@ export default function EventRegistrations() {
             </div>
           ) : (
             <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-              {/* Table Header */}
               <div style={{
                 display: "grid",
                 gridTemplateColumns: isMerch
@@ -328,7 +311,6 @@ export default function EventRegistrations() {
                         flexWrap: "wrap",
                         gap: "16px",
                       }}>
-                        {/* Attendance details */}
                         <div style={{ flex: "1 1 200px" }}>
                           <p style={{ margin: "0 0 6px 0", fontWeight: 600, fontSize: "13px", color: "#374151" }}>
                             Attendance
@@ -336,16 +318,16 @@ export default function EventRegistrations() {
                           {r.attendance?.scanned ? (
                             <>
                               <p style={{ margin: "3px 0", fontSize: "13px", color: "#6b7280" }}>
-                                ✅ Scanned: {new Date(r.attendance.scannedAt).toLocaleString()}
+                                Scanned: {new Date(r.attendance.scannedAt).toLocaleString()}
                               </p>
                               {r.attendance.scanCount > 1 && (
                                 <p style={{ margin: "3px 0", fontSize: "13px", color: "#f59e0b" }}>
-                                  ⚠️ Scan attempts: {r.attendance.scanCount}
+                                  Scan attempts: {r.attendance.scanCount}
                                 </p>
                               )}
                               {r.attendance.manualOverride && (
                                 <p style={{ margin: "3px 0", fontSize: "13px", color: "#92400e" }}>
-                                  📝 Manual override: {r.attendance.overrideReason}
+                                  Manual override: {r.attendance.overrideReason}
                                 </p>
                               )}
                             </>
@@ -354,7 +336,6 @@ export default function EventRegistrations() {
                           )}
                         </div>
 
-                        {/* Merch details */}
                         {r.merchDetails?.size && (
                           <div style={{ flex: "1 1 200px" }}>
                             <p style={{ margin: "0 0 6px 0", fontWeight: 600, fontSize: "13px", color: "#374151" }}>
@@ -382,7 +363,6 @@ export default function EventRegistrations() {
                           </div>
                         )}
 
-                        {/* Form responses */}
                         {r.formResponses && Object.keys(r.formResponses).length > 0 && (
                           <div style={{ flex: "2 1 300px" }}>
                             <p style={{ margin: "0 0 6px 0", fontWeight: 600, fontSize: "13px", color: "#374151" }}>
@@ -396,7 +376,6 @@ export default function EventRegistrations() {
                           </div>
                         )}
 
-                        {/* Participant info */}
                         {(r.participant?.participantType || r.participant?.contactNumber) && (
                           <div style={{ flex: "1 1 200px" }}>
                             <p style={{ margin: "0 0 6px 0", fontWeight: 600, fontSize: "13px", color: "#374151" }}>

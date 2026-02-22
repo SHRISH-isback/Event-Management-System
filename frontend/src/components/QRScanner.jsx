@@ -1,86 +1,86 @@
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import Webcam from "react-webcam";
 import jsQR from "jsqr";
 import api from "../api/axios";
 
 export default function QRScanner({ eventId, onScanSuccess }) {
-  const [scanMode, setScanMode] = useState(null); 
-  const [scanning, setScanning] = useState(false);
+  const [scanMode, setScanMode] = useState(null);
   const [message, setMessage] = useState("");
-  const [messageType, setMessageType] = useState(""); 
+  const [messageType, setMessageType] = useState("");
   const webcamRef = useRef(null);
   const fileInputRef = useRef(null);
   const scanIntervalRef = useRef(null);
-
+  const isProcessingRef = useRef(false); 
   const showMessage = (text, type) => {
     setMessage(text);
     setMessageType(type);
+  };
+
+  const clearMessageAfterDelay = (delay = 5000) => {
     setTimeout(() => {
       setMessage("");
       setMessageType("");
-    }, 5000);
+    }, delay);
+  };
+
+  const decodeQRFromCanvas = (canvas) => {
+    const ctx = canvas.getContext("2d");
+    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    return jsQR(imageData.data, imageData.width, imageData.height, {
+      inversionAttempts: "dontInvert",
+    });
   };
 
   const processQRCode = useCallback(async (qrData) => {
+    if (isProcessingRef.current) return;
+    isProcessingRef.current = true;
+
+    showMessage("Processing QR code...", "info");
+
     try {
-      setScanning(true);
       const response = await api.post("/attendance/scan", { qrData });
-      
+      const reg = response.data.registration;
       showMessage(
-        ` Attendance marked for ${response.data.registration.participant.name || response.data.registration.participant.email}`,
+        ` ${response.data.message || "Attendance marked for " + (reg.participant?.displayName || reg.participant?.email)}`,
         "success"
       );
-      
-      if (onScanSuccess) {
-        onScanSuccess(response.data.registration);
-      }
+      clearMessageAfterDelay(6000);
+      if (onScanSuccess) onScanSuccess(reg);
     } catch (error) {
       const errorMessage = error.response?.data?.message || "Error scanning QR code";
-      
-      if (errorMessage.includes("already scanned")) {
+      if (errorMessage.toLowerCase().includes("already scanned")) {
         showMessage(` ${errorMessage}`, "warning");
       } else {
         showMessage(` ${errorMessage}`, "error");
       }
+      clearMessageAfterDelay(6000);
     } finally {
-      setScanning(false);
+      isProcessingRef.current = false;
     }
   }, [onScanSuccess]);
 
   const captureAndScan = useCallback(() => {
-    if (!webcamRef.current || scanning) return;
+    if (isProcessingRef.current) return;
+    if (!webcamRef.current) return;
 
     const imageSrc = webcamRef.current.getScreenshot();
     if (!imageSrc) return;
 
     const img = new Image();
-    img.src = imageSrc;
     img.onload = () => {
       const canvas = document.createElement("canvas");
-      canvas.width = img.width;
-      canvas.height = img.height;
+      canvas.width = img.naturalWidth || img.width;
+      canvas.height = img.naturalHeight || img.height;
       const ctx = canvas.getContext("2d");
-      ctx.drawImage(img, 0, 0);
-
-      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-      const code = jsQR(imageData.data, imageData.width, imageData.height);
-
-      if (code) {
-        processQRCode(code.data);
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      const code = decodeQRFromCanvas(canvas);
+      if (code && code.data) {
         stopScanning();
+        processQRCode(code.data);
       }
     };
-  }, [scanning, processQRCode]);
-
-  const startCameraScanning = () => {
-    setScanMode("camera");
-    setMessage("Position QR code in front of camera...");
-    setMessageType("info");
-    
-    scanIntervalRef.current = setInterval(() => {
-      captureAndScan();
-    }, 500);
-  };
+    img.src = imageSrc;
+  }, [processQRCode]);
 
   const stopScanning = () => {
     if (scanIntervalRef.current) {
@@ -88,37 +88,63 @@ export default function QRScanner({ eventId, onScanSuccess }) {
       scanIntervalRef.current = null;
     }
     setScanMode(null);
-    setMessage("");
   };
 
-  const handleFileUpload = (event) => {
-    const file = event.target.files[0];
+  const startCameraScanning = () => {
+    isProcessingRef.current = false;
+    setScanMode("camera");
+    showMessage("Point camera at the QR code...", "info");
+  };
+
+  useEffect(() => {
+    if (scanMode === "camera") {
+      scanIntervalRef.current = setInterval(captureAndScan, 400);
+    }
+    return () => {
+      if (scanIntervalRef.current) {
+        clearInterval(scanIntervalRef.current);
+        scanIntervalRef.current = null;
+      }
+    };
+  }, [scanMode, captureAndScan]);
+
+  const handleFileUpload = (e) => {
+    const file = e.target.files[0];
     if (!file) return;
+    e.target.value = "";
+
+    showMessage("🔍 Reading QR code from image...", "info");
 
     const reader = new FileReader();
-    reader.onload = (e) => {
+    reader.onload = (evt) => {
       const img = new Image();
-      img.src = e.target.result;
       img.onload = () => {
-        const canvas = document.createElement("canvas");
-        canvas.width = img.width;
-        canvas.height = img.height;
-        const ctx = canvas.getContext("2d");
-        ctx.drawImage(img, 0, 0);
+        const tryDecode = (scale) => {
+          const canvas = document.createElement("canvas");
+          canvas.width = img.naturalWidth * scale;
+          canvas.height = img.naturalHeight * scale;
+          const ctx = canvas.getContext("2d");
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+          return decodeQRFromCanvas(canvas);
+        };
 
-        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-        const code = jsQR(imageData.data, imageData.width, imageData.height);
-
-        if (code) {
+        let code = tryDecode(1);
+        if (!code) code = tryDecode(2);   
+        if (!code) code = tryDecode(0.5); 
+        if (code && code.data) {
           processQRCode(code.data);
         } else {
-          showMessage("No QR code found in image", "error");
+          showMessage(" No QR code detected in this image. Try a clearer photo or use camera scan.", "error");
+          clearMessageAfterDelay(6000);
         }
       };
+      img.onerror = () => {
+        showMessage(" Could not load image file.", "error");
+        clearMessageAfterDelay(4000);
+      };
+      img.src = evt.target.result;
     };
     reader.readAsDataURL(file);
-    
-    event.target.value = "";
   };
 
   return (
@@ -133,37 +159,35 @@ export default function QRScanner({ eventId, onScanSuccess }) {
         QR Code Scanner
       </h3>
 
-      {}
       {message && (
         <div style={{
           padding: "12px 16px",
           borderRadius: "8px",
           marginBottom: "16px",
-          backgroundColor: messageType === "success" ? "#d1fae5" :
-                          messageType === "error" ? "#fee2e2" :
-                          messageType === "warning" ? "#fef3c7" : "#dbeafe",
-          border: `1px solid ${messageType === "success" ? "#86efac" :
-                               messageType === "error" ? "#fca5a5" :
-                               messageType === "warning" ? "#fcd34d" : "#93c5fd"}`,
-          color: messageType === "success" ? "#065f46" :
-                 messageType === "error" ? "#991b1b" :
-                 messageType === "warning" ? "#92400e" : "#1e40af",
+          backgroundColor: messageType === "success" ? "#d1fae5"
+                         : messageType === "error"   ? "#fee2e2"
+                         : messageType === "warning" ? "#fef3c7"
+                         :                            "#dbeafe",
+          border: `1px solid ${
+            messageType === "success" ? "#86efac"
+          : messageType === "error"   ? "#fca5a5"
+          : messageType === "warning" ? "#fcd34d"
+          :                            "#93c5fd"
+          }`,
+          color: messageType === "success" ? "#065f46"
+               : messageType === "error"   ? "#991b1b"
+               : messageType === "warning" ? "#92400e"
+               :                            "#1e40af",
           fontWeight: "500",
         }}>
           {message}
         </div>
       )}
 
-      {}
       {!scanMode && (
-        <div style={{
-          display: "grid",
-          gridTemplateColumns: "1fr 1fr",
-          gap: "16px",
-        }}>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" }}>
           <button
             onClick={startCameraScanning}
-            disabled={scanning}
             style={{
               padding: "16px",
               backgroundColor: "#3b82f6",
@@ -173,17 +197,13 @@ export default function QRScanner({ eventId, onScanSuccess }) {
               cursor: "pointer",
               fontSize: "16px",
               fontWeight: "500",
-              transition: "all 0.2s",
             }}
-            onMouseEnter={(e) => e.target.style.backgroundColor = "#2563eb"}
-            onMouseLeave={(e) => e.target.style.backgroundColor = "#3b82f6"}
           >
             Scan with Camera
           </button>
 
           <button
             onClick={() => fileInputRef.current?.click()}
-            disabled={scanning}
             style={{
               padding: "16px",
               backgroundColor: "#10b981",
@@ -193,12 +213,9 @@ export default function QRScanner({ eventId, onScanSuccess }) {
               cursor: "pointer",
               fontSize: "16px",
               fontWeight: "500",
-              transition: "all 0.2s",
             }}
-            onMouseEnter={(e) => e.target.style.backgroundColor = "#059669"}
-            onMouseLeave={(e) => e.target.style.backgroundColor = "#10b981"}
           >
-             Upload QR Image
+            Upload QR Image
           </button>
 
           <input
@@ -211,7 +228,6 @@ export default function QRScanner({ eventId, onScanSuccess }) {
         </div>
       )}
 
-      {}
       {scanMode === "camera" && (
         <div>
           <div style={{
@@ -227,31 +243,21 @@ export default function QRScanner({ eventId, onScanSuccess }) {
               ref={webcamRef}
               audio={false}
               screenshotFormat="image/jpeg"
-              videoConstraints={{
-                facingMode: "environment",
-              }}
-              style={{
-                width: "100%",
-                height: "auto",
-              }}
+              screenshotQuality={0.92}
+              videoConstraints={{ facingMode: "environment", width: 1280, height: 720 }}
+              style={{ width: "100%", height: "auto", display: "block" }}
             />
-            
-            {}
-            {scanning && (
-              <div style={{
-                position: "absolute",
-                top: "50%",
-                left: "50%",
-                transform: "translate(-50%, -50%)",
-                backgroundColor: "rgba(0,0,0,0.7)",
-                color: "white",
-                padding: "12px 24px",
-                borderRadius: "8px",
-                fontWeight: "500",
-              }}>
-                Processing...
-              </div>
-            )}
+            {/* Targeting overlay */}
+            <div style={{
+              position: "absolute",
+              top: "50%", left: "50%",
+              transform: "translate(-50%, -50%)",
+              width: "200px", height: "200px",
+              border: "3px solid #3b82f6",
+              borderRadius: "12px",
+              boxShadow: "0 0 0 9999px rgba(0,0,0,0.35)",
+              pointerEvents: "none",
+            }} />
           </div>
 
           <button
@@ -269,7 +275,7 @@ export default function QRScanner({ eventId, onScanSuccess }) {
               width: "100%",
             }}
           >
-            Stop Scanning
+            ✕ Stop Scanning
           </button>
         </div>
       )}

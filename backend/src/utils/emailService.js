@@ -1,7 +1,7 @@
 const nodemailer = require("nodemailer");
 
 const createTransporter = () => {
-  console.log('📧 Creating email transporter...');
+  console.log('Creating email transporter...');
   console.log('Email config:', {
     service: process.env.EMAIL_SERVICE,
     host: process.env.EMAIL_HOST,
@@ -154,7 +154,7 @@ const sendRegistrationEmail = async (to, emailData) => {
       </head>
       <body>
         <div class="header">
-          <h1> ${isMerch ? "Purchase" : "Registration"} Confirmation</h1>
+          <h1>${isMerch ? "Purchase" : "Registration"} Confirmation</h1>
           <p>${isMerch ? "Your order has been confirmed!" : "You're all set!"}</p>
         </div>
         
@@ -172,7 +172,7 @@ const sendRegistrationEmail = async (to, emailData) => {
 
           ${isMerch && merchDetails ? `
             <div class="merch-details">
-              <h3> Order Details</h3>
+              <h3>Order Details</h3>
               <div class="info-row">
                 <span class="info-label">Size:</span>
                 <span>${merchDetails.size}</span>
@@ -189,7 +189,7 @@ const sendRegistrationEmail = async (to, emailData) => {
           ` : ''}
           
           <div class="ticket-info">
-            <h3>${isMerch ? " Item Details" : " Event Details"}</h3>
+            <h3>${isMerch ? "Item Details" : "Event Details"}</h3>
             ${!isMerch ? `
               <div class="info-row">
                 <span class="info-label">Date:</span>
@@ -217,7 +217,7 @@ const sendRegistrationEmail = async (to, emailData) => {
           </div>
           
           <div class="note">
-            <strong>📱 Important:</strong>
+            <strong>Important:</strong>
             <ul style="margin: 10px 0; padding-left: 20px;">
               <li>Save this email or take a screenshot of the QR code</li>
               <li>Present the QR code on your phone or a printed copy</li>
@@ -260,6 +260,70 @@ const sendRegistrationEmail = async (to, emailData) => {
     return { success: true, messageId: info.messageId };
   } catch (error) {
     console.error("Error sending email:", error);
+    throw error;
+  }
+};
+
+const sendMerchRegistrationEmail = async (to, emailData) => {
+  try {
+    const transporter = createTransporter();
+    const { participantName, eventName, eventDate, eventTime, eventLocation, ticketId } = emailData;
+
+    const htmlContent = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <style>
+          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; }
+          .header { background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
+          .content { background: #f9f9f9; padding: 30px; border: 1px solid #ddd; }
+          .ticket-id { font-size: 22px; font-weight: bold; color: #059669; text-align: center; margin: 20px 0; padding: 15px; background: white; border-radius: 8px; letter-spacing: 2px; }
+          .event-box { background: white; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #10b981; }
+          .info-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #eee; }
+          .info-label { font-weight: bold; color: #059669; }
+          .notice { background: #ecfdf5; border: 1px solid #6ee7b7; padding: 20px; border-radius: 8px; margin: 20px 0; color: #065f46; }
+          .footer { background: #333; color: white; padding: 20px; text-align: center; border-radius: 0 0 10px 10px; font-size: 12px; }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <h1>Registration Confirmed!</h1>
+          <p>You have reserved your spot for ${eventName}</p>
+        </div>
+        <div class="content">
+          <p>Hi ${participantName},</p>
+          <p>You have successfully registered for <strong>${eventName}</strong>. Your registration ID is below.</p>
+          <div class="ticket-id">Registration ID: ${ticketId}</div>
+          <div class="event-box">
+            <h3>Event Details</h3>
+            <div class="info-row"><span class="info-label">Date:</span><span>${eventDate}</span></div>
+            <div class="info-row"><span class="info-label">Time:</span><span>${eventTime}</span></div>
+            <div class="info-row"><span class="info-label">Location:</span><span>${eventLocation}</span></div>
+          </div>
+          <div class="notice">
+            <strong>Want to order merchandise?</strong><br/>
+            Visit the event page and click <strong>Order Merchandise</strong> to select your size, color, and quantity, then upload your payment proof. Your order will be confirmed once the organiser approves the payment.
+          </div>
+          <p>Best regards,<br>The Event Management Team</p>
+        </div>
+        <div class="footer">
+          <p>This is an automated email. Please do not reply to this message.</p>
+        </div>
+      </body>
+      </html>
+    `;
+
+    const info = await transporter.sendMail({
+      from: process.env.EMAIL_FROM || '"Event Management System" <noreply@events.com>',
+      to,
+      subject: `Registration Confirmed: ${eventName} - ID #${ticketId}`,
+      html: htmlContent,
+    });
+
+    console.log("Merch registration email sent:", info.messageId);
+    return { success: true, messageId: info.messageId };
+  } catch (error) {
+    console.error("Error sending merch registration email:", error);
     throw error;
   }
 };
@@ -307,7 +371,7 @@ const sendCancellationEmail = async (to, emailData) => {
       </head>
       <body>
         <div class="header">
-          <h1>🔔 Registration Cancelled</h1>
+          <h1>Registration Cancelled</h1>
         </div>
         
         <div class="content">
@@ -373,7 +437,7 @@ const sendOrderPlacedEmail = async (to, emailData) => {
       </head>
       <body>
         <div class="header">
-          <h1>🛍️ Order Placed!</h1>
+          <h1>Order Placed!</h1>
           <p>Your merchandise order has been received</p>
         </div>
         <div class="content">
@@ -382,14 +446,14 @@ const sendOrderPlacedEmail = async (to, emailData) => {
           <div class="order-id">Order ID: ${ticketId}</div>
           ${merchDetails ? `
           <div class="merch-box">
-            <h3>🧾 Order Details</h3>
+            <h3>Order Details</h3>
             <div class="info-row"><span class="info-label">Size:</span><span>${merchDetails.size}</span></div>
             <div class="info-row"><span class="info-label">Color:</span><span>${merchDetails.color}</span></div>
             <div class="info-row"><span class="info-label">Quantity:</span><span>${merchDetails.quantity}</span></div>
             <div class="info-row"><span class="info-label">Total Amount:</span><span>₹${totalAmount}</span></div>
           </div>` : ''}
           <div class="steps">
-            <strong>📋 Next Steps:</strong>
+            <strong>Next Steps:</strong>
             <ol>
               <li>Complete the payment of <strong>₹${totalAmount}</strong></li>
               <li>Take a screenshot or photo of your payment receipt</li>
@@ -398,7 +462,7 @@ const sendOrderPlacedEmail = async (to, emailData) => {
               <li>Once approved, you will receive a confirmation email with your QR code</li>
             </ol>
           </div>
-          <p>⚠️ <strong>Important:</strong> Your order is <em>not confirmed</em> until the payment is verified and approved by the organizer. No QR code is issued until then.</p>
+          <p><strong>Important:</strong> Your order is <em>not confirmed</em> until the payment is verified and approved by the organizer. No QR code is issued until then.</p>
           <p>Best regards,<br>The Event Management Team</p>
         </div>
         <div class="footer">
@@ -441,7 +505,7 @@ const sendPaymentApprovalEmail = async (to, emailData) => {
       };
       qrSection = `
         <div class="qr-code">
-          <h3>📱 Your Pickup QR Code</h3>
+          <h3>Your Pickup QR Code</h3>
           <img src="cid:qrcode@ticket" alt="Pickup QR Code" style="max-width:250px;height:auto;display:block;margin:0 auto;" />
           <p style="color: #666; margin-top: 10px;">Show this QR code to collect your merchandise</p>
         </div>`;
@@ -467,7 +531,7 @@ const sendPaymentApprovalEmail = async (to, emailData) => {
       </head>
       <body>
         <div class="header">
-          <h1>✅ Payment Approved!</h1>
+          <h1>Payment Approved!</h1>
           <p>Your order is now confirmed</p>
         </div>
         <div class="content">
@@ -476,7 +540,7 @@ const sendPaymentApprovalEmail = async (to, emailData) => {
           <div class="order-id">Order ID: ${ticketId}</div>
           ${merchDetails ? `
           <div class="merch-box">
-            <h3>🧾 Order Details</h3>
+            <h3>Order Details</h3>
             <div class="info-row"><span class="info-label">Size:</span><span>${merchDetails.size}</span></div>
             <div class="info-row"><span class="info-label">Color:</span><span>${merchDetails.color}</span></div>
             <div class="info-row"><span class="info-label">Quantity:</span><span>${merchDetails.quantity}</span></div>
@@ -484,7 +548,7 @@ const sendPaymentApprovalEmail = async (to, emailData) => {
           </div>` : ''}
           ${qrSection}
           <div class="note">
-            <strong>📱 Important:</strong>
+            <strong>Important:</strong>
             <ul style="margin: 10px 0; padding-left: 20px;">
               <li>Save this email or screenshot the QR code</li>
               <li>Present the QR code when collecting your merchandise</li>
@@ -503,7 +567,7 @@ const sendPaymentApprovalEmail = async (to, emailData) => {
     const info = await transporter.sendMail({
       from: process.env.EMAIL_FROM || '"Event Management System" <noreply@events.com>',
       to,
-      subject: `✅ Order Confirmed: ${eventName} - Order #${ticketId}`,
+      subject: `Order Confirmed: ${eventName} - Order #${ticketId}`,
       html: htmlContent,
       attachments: qrAttachment ? [qrAttachment] : [],
     });
@@ -539,7 +603,7 @@ const sendPaymentRejectionEmail = async (to, emailData) => {
       </head>
       <body>
         <div class="header">
-          <h1>❌ Payment Rejected</h1>
+          <h1>Payment Rejected</h1>
           <p>Action required for your merchandise order</p>
         </div>
         <div class="content">
@@ -551,7 +615,7 @@ const sendPaymentRejectionEmail = async (to, emailData) => {
             ${reason}
           </div>
           <div class="steps">
-            <strong>📋 What to do next:</strong>
+            <strong>What to do next:</strong>
             <ol>
               <li>Review the rejection reason above</li>
               <li>Ensure you have a valid payment receipt/screenshot</li>
@@ -572,7 +636,7 @@ const sendPaymentRejectionEmail = async (to, emailData) => {
     const info = await transporter.sendMail({
       from: process.env.EMAIL_FROM || '"Event Management System" <noreply@events.com>',
       to,
-      subject: `❌ Payment Rejected: ${eventName} - Order #${ticketId}`,
+      subject: `Payment Rejected: ${eventName} - Order #${ticketId}`,
       html: htmlContent,
     });
 
@@ -584,10 +648,79 @@ const sendPaymentRejectionEmail = async (to, emailData) => {
   }
 };
 
+const sendPaymentProofSubmittedEmail = async (to, emailData) => {
+  try {
+    const transporter = createTransporter();
+    const { participantName, eventName, ticketId, merchDetails, registrationFee } = emailData;
+    const totalAmount = registrationFee * (merchDetails?.quantity || 1);
+
+    const htmlContent = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <style>
+          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; }
+          .header { background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
+          .content { background: #f9f9f9; padding: 30px; border: 1px solid #ddd; }
+          .order-id { font-size: 22px; font-weight: bold; color: #2563eb; text-align: center; margin: 20px 0; padding: 15px; background: white; border-radius: 8px; letter-spacing: 2px; }
+          .merch-box { background: white; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #4facfe; }
+          .info-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #eee; }
+          .info-label { font-weight: bold; color: #2563eb; }
+          .notice { background: #eff6ff; border: 1px solid #bfdbfe; padding: 20px; border-radius: 8px; margin: 20px 0; color: #1e40af; }
+          .footer { background: #333; color: white; padding: 20px; text-align: center; border-radius: 0 0 10px 10px; font-size: 12px; }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <h1>Payment Proof Received</h1>
+          <p>Your merchandise order is awaiting approval</p>
+        </div>
+        <div class="content">
+          <p>Hi ${participantName},</p>
+          <p>We have received your payment proof for the <strong>${eventName}</strong> merchandise order. The organizer will review it shortly.</p>
+          <div class="order-id">Order ID: ${ticketId}</div>
+          ${merchDetails ? `
+          <div class="merch-box">
+            <h3>Order Details</h3>
+            <div class="info-row"><span class="info-label">Size:</span><span>${merchDetails.size}</span></div>
+            <div class="info-row"><span class="info-label">Color:</span><span>${merchDetails.color}</span></div>
+            <div class="info-row"><span class="info-label">Quantity:</span><span>${merchDetails.quantity}</span></div>
+            <div class="info-row"><span class="info-label">Total Amount:</span><span>&#8377;${totalAmount}</span></div>
+          </div>` : ''}
+          <div class="notice">
+            <strong>What happens next?</strong><br/>
+            The organizer will review your payment proof. Once approved, you will receive a confirmation email with your QR code. Your order is not confirmed until the organizer approves your payment.
+          </div>
+          <p>Best regards,<br>The Event Management Team</p>
+        </div>
+        <div class="footer">
+          <p>This is an automated email. Please do not reply to this message.</p>
+        </div>
+      </body>
+      </html>
+    `;
+
+    const info = await transporter.sendMail({
+      from: process.env.EMAIL_FROM || '"Event Management System" <noreply@events.com>',
+      to,
+      subject: `Payment Proof Received (Awaiting Approval): ${eventName} - Order #${ticketId}`,
+      html: htmlContent,
+    });
+
+    console.log("Payment proof submitted email sent:", info.messageId);
+    return { success: true, messageId: info.messageId };
+  } catch (error) {
+    console.error("Error sending payment proof submitted email:", error);
+    throw error;
+  }
+};
+
 module.exports = {
   sendRegistrationEmail,
   sendCancellationEmail,
+  sendMerchRegistrationEmail,
   sendOrderPlacedEmail,
+  sendPaymentProofSubmittedEmail,
   sendPaymentApprovalEmail,
   sendPaymentRejectionEmail,
 };

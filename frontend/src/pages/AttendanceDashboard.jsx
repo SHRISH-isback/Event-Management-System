@@ -8,6 +8,7 @@ export default function AttendanceDashboard() {
   const { eventId } = useParams();
   const navigate = useNavigate();
   const [event, setEvent] = useState(null);
+  const [eventType, setEventType] = useState("NORMAL");
   const [stats, setStats] = useState(null);
   const [scannedRegistrations, setScannedRegistrations] = useState([]);
   const [notScannedRegistrations, setNotScannedRegistrations] = useState([]);
@@ -27,6 +28,7 @@ export default function AttendanceDashboard() {
       ]);
       
       setEvent(eventRes.data.event || eventRes.data);
+      setEventType(attendanceRes.data.eventType || "NORMAL");
       setStats(attendanceRes.data.stats);
       setScannedRegistrations(attendanceRes.data.scannedRegistrations);
       setNotScannedRegistrations(attendanceRes.data.notScannedRegistrations);
@@ -106,6 +108,26 @@ export default function AttendanceDashboard() {
     );
   }
 
+  const isMerch = eventType === "MERCH";
+  const labels = {
+    heading:        isMerch ? "Order Collection Tracking"    : "Attendance Tracking",
+    total:          isMerch ? "Total Approved Orders"        : "Total Registrations",
+    scanned:        isMerch ? "Collected"                    : "Present",
+    notScanned:     isMerch ? "Not Collected"                : "Absent",
+    rate:           isMerch ? "Collection Rate"              : "Attendance Rate",
+    scanBtn:        isMerch ? "Scan to Mark Collected"       : "Start Scanning",
+    scanBtnHide:    isMerch ? "Hide Scanner"                 : "Hide Scanner",
+    scannedHeading: isMerch ? " Collected"                 : " Present",
+    notScannedHeading: isMerch ? " Not Yet Collected"     : " Absent",
+    markPresent:    isMerch ? "Mark Collected"               : "Mark Present",
+    markAbsent:     isMerch ? "Mark Not Collected"           : "Mark Absent",
+    noScanned:      isMerch ? "No orders marked as collected yet." : "No participants scanned yet.",
+    allScanned:     isMerch ? "All orders have been collected." : "All participants have been scanned.",
+    overrideConfirmMark:   isMerch ? "mark as collected" : "mark present",
+    overrideConfirmUnmark: isMerch ? "mark as not collected" : "mark absent",
+    scannedAtLabel: isMerch ? "Collected At" : "Scanned At",
+  };
+
   return (
     <div className="container">
       <div style={{ marginBottom: "20px" }}>
@@ -125,7 +147,7 @@ export default function AttendanceDashboard() {
         </button>
       </div>
 
-      <h2 style={{ marginBottom: "8px" }}>Attendance Tracking</h2>
+      <h2 style={{ marginBottom: "8px" }}>{labels.heading}</h2>
       <h3 style={{ color: "#6b7280", fontWeight: "normal", marginTop: "0", marginBottom: "24px" }}>
         {event?.name}
       </h3>
@@ -141,7 +163,7 @@ export default function AttendanceDashboard() {
           backgroundColor: "#dbeafe",
           borderLeft: "4px solid #3b82f6",
         }}>
-          <h4 style={{ margin: "0 0 8px 0", color: "#1e40af" }}>Total Registrations</h4>
+          <h4 style={{ margin: "0 0 8px 0", color: "#1e40af" }}>{labels.total}</h4>
           <p style={{ fontSize: "32px", fontWeight: "bold", margin: 0, color: "#1e3a8a" }}>
             {stats?.total || 0}
           </p>
@@ -151,7 +173,7 @@ export default function AttendanceDashboard() {
           backgroundColor: "#d1fae5",
           borderLeft: "4px solid #10b981",
         }}>
-          <h4 style={{ margin: "0 0 8px 0", color: "#065f46" }}>Present</h4>
+          <h4 style={{ margin: "0 0 8px 0", color: "#065f46" }}>{labels.scanned}</h4>
           <p style={{ fontSize: "32px", fontWeight: "bold", margin: 0, color: "#064e3b" }}>
             {stats?.scanned || 0}
           </p>
@@ -161,7 +183,7 @@ export default function AttendanceDashboard() {
           backgroundColor: "#fee2e2",
           borderLeft: "4px solid #ef4444",
         }}>
-          <h4 style={{ margin: "0 0 8px 0", color: "#991b1b" }}>Absent</h4>
+          <h4 style={{ margin: "0 0 8px 0", color: "#991b1b" }}>{labels.notScanned}</h4>
           <p style={{ fontSize: "32px", fontWeight: "bold", margin: 0, color: "#7f1d1d" }}>
             {stats?.notScanned || 0}
           </p>
@@ -171,7 +193,7 @@ export default function AttendanceDashboard() {
           backgroundColor: "#fef3c7",
           borderLeft: "4px solid #f59e0b",
         }}>
-          <h4 style={{ margin: "0 0 8px 0", color: "#92400e" }}>Attendance Rate</h4>
+          <h4 style={{ margin: "0 0 8px 0", color: "#92400e" }}>{labels.rate}</h4>
           <p style={{ fontSize: "32px", fontWeight: "bold", margin: 0, color: "#78350f" }}>
             {stats?.attendanceRate || 0}%
           </p>
@@ -198,7 +220,7 @@ export default function AttendanceDashboard() {
             fontWeight: "500",
           }}
         >
-          {showScanner ? "Hide Scanner" : "Start Scanning"}
+          {showScanner ? labels.scanBtnHide : labels.scanBtn}
         </button>
 
         <button
@@ -307,11 +329,11 @@ export default function AttendanceDashboard() {
           color: "#065f46",
           marginBottom: "12px",
         }}>
-           Present ({scannedRegistrations.length})
+          {labels.scannedHeading} ({scannedRegistrations.length})
         </h3>
 
         {scannedRegistrations.length === 0 ? (
-          <p style={{ color: "#6b7280", fontStyle: "italic" }}>No participants scanned yet.</p>
+          <p style={{ color: "#6b7280", fontStyle: "italic" }}>{labels.noScanned}</p>
         ) : (
           <div style={{ display: "grid", gap: "12px" }}>
             {scannedRegistrations.map((reg) => (
@@ -340,7 +362,7 @@ export default function AttendanceDashboard() {
                       <b>Ticket ID:</b> {reg.ticketId}
                     </p>
                     <p style={{ margin: "4px 0", fontSize: "14px", color: "#6b7280" }}>
-                      <b>Scanned At:</b> {new Date(reg.scannedAt).toLocaleString()}
+                      <b>{labels.scannedAtLabel}:</b> {new Date(reg.scannedAt).toLocaleString()}
                     </p>
                     {reg.scanCount > 1 && (
                       <p style={{ margin: "4px 0", fontSize: "14px", color: "#f59e0b" }}>
@@ -375,7 +397,7 @@ export default function AttendanceDashboard() {
                       marginLeft: "12px",
                     }}
                   >
-                    Mark Absent
+                    {labels.markAbsent}
                   </button>
                 </div>
               </div>
@@ -393,11 +415,11 @@ export default function AttendanceDashboard() {
           color: "#991b1b",
           marginBottom: "12px",
         }}>
-        Absent ({notScannedRegistrations.length})
+          {labels.notScannedHeading} ({notScannedRegistrations.length})
         </h3>
 
         {notScannedRegistrations.length === 0 ? (
-          <p style={{ color: "#6b7280", fontStyle: "italic" }}>All participants have been scanned.</p>
+          <p style={{ color: "#6b7280", fontStyle: "italic" }}>{labels.allScanned}</p>
         ) : (
           <div style={{ display: "grid", gap: "12px" }}>
             {notScannedRegistrations.map((reg) => (
@@ -436,7 +458,7 @@ export default function AttendanceDashboard() {
                       marginLeft: "12px",
                     }}
                   >
-                    Mark Present
+                    {labels.markPresent}
                   </button>
                 </div>
               </div>
@@ -467,10 +489,11 @@ export default function AttendanceDashboard() {
             maxWidth: "500px",
             width: "100%",
           }}>
-            <h3 style={{ marginTop: 0 }}>Manual Attendance Override</h3>
+            <h3 style={{ marginTop: 0 }}>Manual Override</h3>
             <p style={{ color: "#6b7280" }}>
-              You are about to {overrideAction === "mark" ? "mark present" : "mark absent"} this participant manually.
-              Please provide a reason for audit purposes.
+              You are about to{" "}
+              {overrideAction === "mark" ? labels.overrideConfirmMark : labels.overrideConfirmUnmark}{" "}
+              this participant manually. Please provide a reason for audit purposes.
             </p>
 
             <textarea

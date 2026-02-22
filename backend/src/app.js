@@ -43,7 +43,6 @@ app.use("/api/attendance", attendanceRoutes);
 app.use("/api/forum", forumRoutes);
 app.use("/api/password-reset", passwordResetRoutes);
 
-//TEMP TEST ROUTE
 app.get("/api/protected", requireAuth, (req, res) => {
   res.json({
     message: "Access granted",

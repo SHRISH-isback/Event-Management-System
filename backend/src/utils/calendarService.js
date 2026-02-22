@@ -9,7 +9,7 @@ const generateICSFile = (event, registration = null, reminderMinutes = 30) => {
   const dtStart = formatICSDate(new Date(event.startDate));
   const dtEnd = event.endDate 
     ? formatICSDate(new Date(event.endDate))
-    : formatICSDate(new Date(new Date(event.startDate).getTime() + 2 * 60 * 60 * 1000)); // Default 2 hours
+    : formatICSDate(new Date(new Date(event.startDate).getTime() + 2 * 60 * 60 * 1000));
   
   let description = event.description || "";
   if (registration) {

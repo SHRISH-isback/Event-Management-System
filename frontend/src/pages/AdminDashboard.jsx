@@ -74,14 +74,20 @@ export default function AdminDashboard() {
 
   const deleteOrganizer = async (organizerId, organizerName) => {
     if (!window.confirm(
-      ` WARNING: Are you sure you want to PERMANENTLY DELETE "${organizerName}"?\n\n` + 
-      `Type the organizer name to confirm deletion.`
+      `⚠️ PERMANENT DELETION WARNING\n\n` +
+      `You are about to permanently delete "${organizerName}".\n\n` +
+      `This will also delete:\n` +
+      `  • All events created by this organizer\n` +
+      `  • All registrations & merch orders for those events\n` +
+      `  • All forum messages for those events\n` +
+      `  • All password reset requests from this organizer\n\n` +
+      `This action CANNOT be undone. Proceed?`
     )) {
       return;
     }
 
     const confirmation = window.prompt(
-      `To confirm deletion, type the organizer name: "${organizerName}"`
+      `To confirm deletion, type the organizer name exactly: "${organizerName}"`
     );
 
     if (confirmation !== organizerName) {
@@ -90,8 +96,12 @@ export default function AdminDashboard() {
     }
 
     try {
-      await api.delete(`/admin/organizers/${organizerId}`);
-      alert("Organizer permanently deleted successfully.");
+      const res = await api.delete(`/admin/organizers/${organizerId}`);
+      const d = res.data.deleted;
+      alert(
+        ` Organizer permanently deleted.\n\n` +
+        `Removed: ${d.events} event(s), ${d.registrations} registration(s), ${d.forumMessages} forum message(s).`
+      );
       fetchOrganizers();
     } catch (err) {
       alert("Failed to delete organizer: " + (err.response?.data?.message || err.message));
@@ -112,7 +122,7 @@ export default function AdminDashboard() {
             marginRight: "10px",
           }}
         >
-           Manage Password Resets
+          Manage Password Resets
         </button>
       </div>
 
@@ -174,7 +184,7 @@ export default function AdminDashboard() {
           <p><b>Email:</b> {credentials.email}</p>
           <p><b>Password:</b> {credentials.password}</p>
           <p style={{ color: "red" }}>
-            ⚠ Save this password now. It will not be shown again.
+            Save this password now. It will not be shown again.
           </p>
         </div>
       )}

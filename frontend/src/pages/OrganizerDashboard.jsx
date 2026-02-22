@@ -41,7 +41,7 @@ export default function OrganizerDashboard() {
             onClick={() => navigate("/organizer/merchandise-orders")}
             style={{ backgroundColor: "#f59e0b", color: "#fff", border: "none" }}
           >
-            🛍️ Merchandise Orders
+            Merchandise Orders
           </button>
         )}
       </div>
@@ -94,7 +94,7 @@ export default function OrganizerDashboard() {
                   onClick={() => navigate(`/organizer/event/${event._id}/attendance`)}
                   style={{ backgroundColor: "#10b981", marginRight: "10px" }}
                 >
-                  ✅ Attendance Tracking
+                  Attendance Tracking
                 </button>
               )}
               {event.type === "MERCH" && (
@@ -103,7 +103,7 @@ export default function OrganizerDashboard() {
                   onClick={() => navigate("/organizer/merchandise-orders")}
                   style={{ backgroundColor: "#f59e0b", color: "#fff", border: "none" }}
                 >
-                  🛍️ Merch Orders
+                  Merch Orders
                 </button>
               )}
             </>

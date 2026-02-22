@@ -424,17 +424,12 @@ export default function MyEvents() {
                         : "#856404",
                   }}
                 >
-                  {reg.paymentStatus === "PENDING" && reg.paymentProof
+                  {reg.paymentStatus === "PENDING"
                     ? "PENDING APPROVAL"
                     : reg.paymentStatus}
                 </span>
               </p>
-              {reg.paymentStatus === "PENDING" && !reg.paymentProof && (
-                <p style={{ margin: "5px 0 0 0", fontSize: "14px" }}>
-                  📤 Please upload payment proof to confirm your order.
-                </p>
-              )}
-              {reg.paymentStatus === "PENDING" && reg.paymentProof && (
+              {reg.paymentStatus === "PENDING" && (
                 <p style={{ margin: "5px 0 0 0", fontSize: "14px" }}>
                   ⏳ Payment proof uploaded. Awaiting organizer approval.
                 </p>
@@ -492,35 +487,7 @@ export default function MyEvents() {
                 </button>
               )}
 
-              {/* Upload payment proof — for pending merch orders without proof */}
-              {reg.event.type === "MERCH" &&
-               reg.paymentStatus === "PENDING" &&
-               !reg.paymentProof && (
-                <button
-                  onClick={() => handleUploadPaymentProof(reg)}
-                  style={{
-                    flex: 1,
-                    padding: "12px 20px",
-                    backgroundColor: "#f59e0b",
-                    color: "#fff",
-                    border: "none",
-                    borderRadius: "8px",
-                    cursor: "pointer",
-                    fontSize: "14px",
-                    fontWeight: "600",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    gap: "8px",
-                    minWidth: "190px",
-                  }}
-                >
-                  <span>📤</span>
-                  Upload Payment Proof
-                </button>
-              )}
-
-              {/* Re-upload payment proof — after rejection */}
+              {/* Re-upload payment proof — only after rejection */}
               {reg.event.type === "MERCH" && reg.paymentStatus === "REJECTED" && (
                 <button
                   onClick={() => handleUploadPaymentProof(reg)}

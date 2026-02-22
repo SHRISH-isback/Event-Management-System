@@ -54,6 +54,21 @@ const scanQRCode = async (req, res) => {
       });
     }
 
+    if (registration.event.type === "MERCH" && registration.paymentStatus !== "APPROVED") {
+      const statusMessages = {
+        PENDING: "This merchandise order is still pending payment approval. Cannot scan until approved.",
+        REJECTED: "This merchandise order's payment was rejected. Cannot scan.",
+      };
+      return res.status(400).json({
+        message: statusMessages[registration.paymentStatus] || "This merchandise order is not approved.",
+        paymentStatus: registration.paymentStatus,
+        registration: {
+          ticketId: registration.ticketId,
+          participant: { ...registration.participant.toObject(), displayName: participantName },
+        }
+      });
+    }
+
     if (registration.attendance.scanned && !registration.attendance.manualOverride) {
       return res.status(400).json({ 
         message: "Ticket already scanned",
@@ -74,12 +89,16 @@ const scanQRCode = async (req, res) => {
 
     await registration.save();
 
+    const isMerch = registration.event.type === "MERCH";
     return res.status(200).json({
-      message: "Attendance marked successfully",
+      message: isMerch
+        ? `Order marked as collected for ${participantName}`
+        : "Attendance marked successfully",
       registration: {
         ticketId: registration.ticketId,
         participant: { ...registration.participant.toObject(), displayName: participantName },
         eventName: registration.event.name,
+        eventType: registration.event.type,
         scannedAt: registration.attendance.scannedAt,
         scanCount: registration.attendance.scanCount,
         merchDetails: registration.merchDetails,
@@ -115,6 +134,8 @@ const getAttendanceDashboard = async (req, res) => {
     const registrations = await Registration.find({
       event: eventId,
       status: "REGISTERED",
+      // For MERCH events, only APPROVED orders are eligible for attendance tracking
+      paymentStatus: event.type === "MERCH" ? "APPROVED" : { $in: ["APPROVED", "NOT_REQUIRED", null] },
     })
     .populate("participant", "email")
     .populate("attendance.scannedBy", "email")
@@ -146,6 +167,7 @@ const getAttendanceDashboard = async (req, res) => {
     };
 
     return res.status(200).json({
+      eventType: event.type,
       stats,
       scannedRegistrations: scannedRegistrations.map(r => ({
         _id: r._id,
@@ -218,6 +240,14 @@ const manualAttendanceOverride = async (req, res) => {
       });
     }
 
+    // For MERCH events, only APPROVED orders can have attendance tracked
+    if (registration.event.type === "MERCH" && registration.paymentStatus !== "APPROVED") {
+      return res.status(400).json({
+        message: "Cannot mark attendance for a merchandise order that has not been approved.",
+        paymentStatus: registration.paymentStatus,
+      });
+    }
+
     if (action === "mark") {
       registration.attendance.scanned = true;
       registration.attendance.scannedAt = new Date();
@@ -277,6 +307,8 @@ const exportAttendanceReport = async (req, res) => {
     const registrations = await Registration.find({
       event: eventId,
       status: "REGISTERED",
+      // For MERCH events, only export APPROVED orders (those with valid QR codes)
+      paymentStatus: event.type === "MERCH" ? "APPROVED" : { $in: ["APPROVED", "NOT_REQUIRED", null] },
     })
     .populate("participant", "email")
     .populate("attendance.scannedBy", "email")
