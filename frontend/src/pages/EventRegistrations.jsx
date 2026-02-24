@@ -57,16 +57,21 @@ export default function EventRegistrations() {
   const [filterAttendance, setFilterAttendance] = useState("all");
   const [filterPayment, setFilterPayment] = useState("all");
   const [expandedId, setExpandedId] = useState(null);
+  const [analytics, setAnalytics] = useState(null);
+  const [showAnalytics, setShowAnalytics] = useState(false);
+  const [csvLoading, setCsvLoading] = useState(false);
 
-  // Fetch event details and all registrations in parallel
+  // Fetch event details, registrations, and analytics
   useEffect(() => {
     Promise.all([
       api.get(`/events/${eventId}`),
       api.get(`/registrations/event/${eventId}`),
+      api.get(`/events/${eventId}/analytics`).catch(() => null),
     ])
-      .then(([evRes, regRes]) => {
+      .then(([evRes, regRes, analyticsRes]) => {
         setEvent(evRes.data.event || evRes.data);
         setRegistrations(regRes.data);
+        if (analyticsRes) setAnalytics(analyticsRes.data);
       })
       .catch(err => setError(err.response?.data?.message || "Failed to load registrations"))
       .finally(() => setLoading(false));
@@ -104,6 +109,25 @@ export default function EventRegistrations() {
 
   const isMerch = event?.type === "MERCH";
   const showPaymentFilter = isMerch || stats.hasPaidRegistrations;
+
+  // CSV export handler
+  const handleExportCSV = async () => {
+    setCsvLoading(true);
+    try {
+      const res = await api.get(`/registrations/export/${eventId}`, { responseType: "blob" });
+      const url = window.URL.createObjectURL(new Blob([res.data]));
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute("download", `registrations-${eventId}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+    } catch (err) {
+      alert(err.response?.data?.message || "Failed to export CSV");
+    } finally {
+      setCsvLoading(false);
+    }
+  };
 
   return (
     <div style={{ maxWidth: "1100px", margin: "0 auto", padding: "24px 16px" }}>
@@ -415,6 +439,47 @@ export default function EventRegistrations() {
             </div>
           )}
         </>
+      )}
+
+      {/* Analytics and CSV export panel */}
+      <div style={{ display: "flex", gap: "16px", alignItems: "center", marginBottom: "18px" }}>
+        <button className="btn" onClick={() => setShowAnalytics(a => !a)} style={{ backgroundColor: "#3b82f6" }}>
+          {showAnalytics ? "Hide Analytics" : "Show Analytics"}
+        </button>
+        <button className="btn" onClick={handleExportCSV} disabled={csvLoading} style={{ backgroundColor: "#10b981" }}>
+          {csvLoading ? "Exporting..." : "Export CSV"}
+        </button>
+      </div>
+      {showAnalytics && analytics && (
+        <div style={{ background: "#f9fafb", border: "1px solid #e5e7eb", borderRadius: "10px", padding: "18px 24px", marginBottom: "18px" }}>
+          <h3 style={{ margin: 0, fontSize: "18px", color: "#1e40af" }}>Event Analytics</h3>
+          <div style={{ display: "flex", gap: "24px", flexWrap: "wrap", marginTop: "12px" }}>
+            <div><b>Total Registrations:</b> {analytics.totalRegistrations}</div>
+            <div><b>Attendance Rate:</b> {analytics.attendanceRate}%</div>
+            <div><b>Revenue:</b> ₹{analytics.revenue}</div>
+          </div>
+          <div style={{ marginTop: "12px" }}>
+            <b>Registrations (last 7 days):</b>
+            <div style={{ display: "flex", gap: "8px", marginTop: "6px" }}>
+              {analytics.timeline.map((d, i) => (
+                <div key={i} style={{ minWidth: 60, textAlign: "center" }}>
+                  <div style={{ fontWeight: 600 }}>{d.count}</div>
+                  <div style={{ fontSize: "12px", color: "#6b7280" }}>{d.date}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div style={{ marginTop: "12px" }}>
+            <b>Payment Status Breakdown:</b>
+            <div style={{ display: "flex", gap: "12px", marginTop: "6px" }}>
+              {Object.entries(analytics.statusBreakdown).map(([status, count]) => (
+                <span key={status} style={{ background: "#e0e7ef", borderRadius: "8px", padding: "4px 10px", fontSize: "13px" }}>
+                  {status}: {count}
+                </span>
+              ))}
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

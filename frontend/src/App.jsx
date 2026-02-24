@@ -19,6 +19,8 @@ import AttendanceDashboard from "./pages/AttendanceDashboard";
 import PasswordResetManagement from "./pages/PasswordResetManagement";
 import MerchandiseOrders from "./pages/MerchandiseOrders";
 import PaymentVerification from "./pages/PaymentVerification";
+import EditEvent from "./pages/EditEvent";
+import OngoingEvents from "./pages/OngoingEvents";
 
 function App() {
   return (
@@ -216,6 +218,28 @@ function App() {
               <>
                 <Navbar />
                 <PasswordResetManagement />
+              </>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/organizer/event/:eventId/edit"
+          element={
+            <ProtectedRoute allowedRoles={["ORGANIZER"]}>
+              <>
+                <Navbar />
+                <EditEvent />
+              </>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/organizer/ongoing"
+          element={
+            <ProtectedRoute allowedRoles={["ORGANIZER"]}>
+              <>
+                <Navbar />
+                <OngoingEvents />
               </>
             </ProtectedRoute>
           }

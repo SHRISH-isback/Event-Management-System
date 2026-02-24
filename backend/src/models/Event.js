@@ -50,7 +50,7 @@ const eventSchema = new mongoose.Schema(
 
     status: {
       type: String,
-      enum: ["DRAFT", "PUBLISHED", "CLOSED"],
+      enum: ["DRAFT", "PUBLISHED", "ONGOING", "COMPLETED", "CLOSED"],
       default: "DRAFT",
     },
 

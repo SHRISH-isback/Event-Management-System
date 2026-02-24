@@ -773,6 +773,13 @@ export default function EventDetails() {
                     </>
                 )}
 
+                {role === "ORGANIZER" && (
+                    <button className="btn" style={{ backgroundColor: "#3b82f6", marginTop: 12 }}
+                        onClick={() => navigate(`/organizer/event/${event._id}/registrations`)}>
+                        View Analytics & Participants
+                    </button>
+                )}
+
                 <button className="btn" style={{ backgroundColor: "#6b7280", flex: "0 1 auto" }} onClick={() => navigate(-1)}>
                     Back
                 </button>

@@ -347,7 +347,6 @@ export default function MyEvents() {
 
             <p style={{ display: "flex", alignItems: "center", gap: "8px" }}>
               <span style={{ fontSize: "16px" }}>
-                {reg.status === "REGISTERED" ? "✅" : "❌"}
               </span>
               <b>Status:</b>{" "}
               <span
@@ -438,8 +437,8 @@ export default function MyEvents() {
               {reg.paymentStatus === "PENDING" && (
                 <p style={{ margin: "5px 0 0 0", fontSize: "14px" }}>
                   {reg.paymentProof
-                    ? "⏳ Payment proof uploaded. Awaiting organizer approval."
-                    : "📤 Please upload your payment proof to complete your booking."}
+                    ? " Payment proof uploaded. Awaiting organizer approval."
+                    : " Please upload your payment proof to complete your booking."}
                 </p>
               )}
               {reg.paymentStatus === "REJECTED" && reg.paymentRejectionReason && (
@@ -449,12 +448,12 @@ export default function MyEvents() {
               )}
               {reg.paymentStatus === "REJECTED" && (
                 <p style={{ margin: "5px 0 0 0", fontSize: "14px" }}>
-                  🔄 Please re-upload a valid payment proof.
+                   Please re-upload a valid payment proof.
                 </p>
               )}
               {reg.paymentStatus === "APPROVED" && (
                 <p style={{ margin: "5px 0 0 0", fontSize: "14px" }}>
-                  ✅ {reg.event.type === "MERCH" ? "Your order has been confirmed!" : "Your registration is confirmed!"} Use the QR code button below.
+                   {reg.event.type === "MERCH" ? "Your order has been confirmed!" : "Your registration is confirmed!"} Use the QR code button below.
                 </p>
               )}
             </div>
@@ -491,7 +490,6 @@ export default function MyEvents() {
                 >
                   {resendLoading === reg._id ? "Loading..." : (
                     <>
-                      <span>🎫</span>
                       View QR Code
                     </>
                   )}
@@ -519,7 +517,7 @@ export default function MyEvents() {
                     minWidth: "190px",
                   }}
                 >
-                  🔄 Re-upload Payment Proof
+                  Re-upload Payment Proof
                 </button>
               )}
 
@@ -544,7 +542,7 @@ export default function MyEvents() {
                     minWidth: "190px",
                   }}
                 >
-                  📤 Upload Payment Proof
+                  Upload Payment Proof
                 </button>
               )}
 
@@ -570,7 +568,7 @@ export default function MyEvents() {
                     minWidth: "160px",
                   }}
                 >
-                  📅 Add to Calendar
+                  Add to Calendar
                 </button>
               )}
             </div>
@@ -709,8 +707,8 @@ export default function MyEvents() {
               }}>
                 <strong>
                   {selectedRegistration.event.type === "MERCH"
-                    ? "✅ Payment Approved!"
-                    : "📧 Email Sent!"}
+                    ? "Payment Approved!"
+                    : "Email Sent!"}
                 </strong>
               </p>
               <p style={{

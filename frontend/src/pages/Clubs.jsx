@@ -122,9 +122,9 @@ export default function Clubs() {
                 {org.description || "No description available"}
               </p>
 
-              {org.contactEmail && (
+              {(org.contactEmail || (org.user && org.user.email)) && (
                 <p style={{ color: "#888", fontSize: "14px", marginTop: "10px" }}>
-                   {org.contactEmail}
+                  {org.contactEmail || org.user.email}
                 </p>
               )}
             </div>

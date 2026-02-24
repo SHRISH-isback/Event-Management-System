@@ -834,7 +834,66 @@ const rejectPayment = async (req, res) => {
   }
 };
 
-module.exports = { registerForEvent, getMyRegistrations, getEventRegistrations,checkRegistration,
+const exportRegistrationsCSV = async (req, res) => {
+  try {
+    const organizer = await Organizer.findOne({ user: req.user.id });
+    if (!organizer) return res.status(404).json({ message: "Organizer profile not found" });
+
+    const event = await Event.findById(req.params.eventId);
+    if (!event) return res.status(404).json({ message: "Event not found" });
+    if (!event.organizer.equals(organizer._id)) return res.status(403).json({ message: "Not authorized" });
+
+    const registrations = await Registration.find({ event: event._id })
+      .populate({ path: "participant", select: "email" })
+      .populate({ path: "participant", model: "User", select: "email",
+        populate: { path: "_id", model: "Participant", localField: "_id", foreignField: "user", justOne: true }
+      });
+
+    // Re-fetch with participant profile
+    const regs = await Registration.find({ event: event._id }).populate("participant", "email");
+    const Participant = require("../models/Participant");
+    const profiles = await Participant.find({ user: { $in: regs.map(r => r.participant?._id) } });
+    const profileMap = Object.fromEntries(profiles.map(p => [p.user.toString(), p]));
+
+    const isMerch = event.type === "MERCH";
+    const headers = [
+      "Ticket ID", "Email", "First Name", "Last Name", "Contact", "Participant Type",
+      "Registered At", "Attendance",
+      ...(isMerch ? ["Size", "Color", "Quantity"] : []),
+      "Payment Status",
+    ];
+
+    const escape = (v) => `"${String(v ?? "").replace(/"/g, '""')}"`;
+
+    const rows = regs.map(r => {
+      const profile = profileMap[r.participant?._id?.toString()] || {};
+      const base = [
+        r.ticketId,
+        r.participant?.email || "",
+        profile.firstName || "",
+        profile.lastName || "",
+        profile.contactNumber || "",
+        profile.participantType || "",
+        new Date(r.createdAt).toLocaleString(),
+        r.attendance?.scanned ? "Present" : "Absent",
+      ];
+      if (isMerch) {
+        base.push(r.merchDetails?.size || "", r.merchDetails?.color || "", r.merchDetails?.quantity || "");
+      }
+      base.push(r.paymentStatus || "NOT_REQUIRED");
+      return base.map(escape).join(",");
+    });
+
+    const csv = [headers.map(escape).join(","), ...rows].join("\n");
+    res.setHeader("Content-Type", "text/csv");
+    res.setHeader("Content-Disposition", `attachment; filename="registrations-${event._id}.csv"`);
+    res.send(csv);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+module.exports = { registerForEvent, getMyRegistrations, getEventRegistrations, checkRegistration,
   getRegistrationCount,
   verifyTicket,
   resendConfirmationEmail,
@@ -846,4 +905,6 @@ module.exports = { registerForEvent, getMyRegistrations, getEventRegistrations,c
   getPendingPaymentOrders,
   approvePayment,
   rejectPayment,
+  exportRegistrationsCSV,
 };
+

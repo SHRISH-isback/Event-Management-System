@@ -17,6 +17,7 @@ const {
   getPendingPaymentOrders,
   approvePayment,
   rejectPayment,
+  exportRegistrationsCSV,
 } = require("../controllers/registration.controller");
 const { requireAuth, requireRole } = require("../middleware/auth");
 
@@ -121,6 +122,13 @@ router.post(
   requireAuth,
   requireRole("ORGANIZER"),
   rejectPayment
+);
+
+router.get(
+  "/export/:eventId",
+  requireAuth,
+  requireRole("ORGANIZER"),
+  exportRegistrationsCSV
 );
 
 module.exports = router;

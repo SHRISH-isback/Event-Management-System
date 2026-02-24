@@ -30,6 +30,7 @@ export default function Navbar() {
         {role === "ORGANIZER" && (
           <>
             <Link to="/organizer" className="nav-link">My Events</Link>
+            <Link to="/organizer/ongoing" className="nav-link">Ongoing Events</Link>
             <Link to="/organizer/merchandise-orders" className="nav-link">Merch Orders</Link>
           </>
         )}

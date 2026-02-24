@@ -158,4 +158,121 @@ const getTrendingEvents = async (req, res) => {
   }
 };
 
-module.exports = { createEvent, publishEvent, getMyEvents, getAllEvents, getEventById, getTrendingEvents };
+const updateEvent = async (req, res) => {
+  try {
+    const organizer = await Organizer.findOne({ user: req.user.id });
+    if (!organizer) return res.status(404).json({ message: "Organizer profile not found" });
+
+    const event = await Event.findById(req.params.id);
+    if (!event) return res.status(404).json({ message: "Event not found" });
+    if (!event.organizer.equals(organizer._id)) return res.status(403).json({ message: "Not authorized to edit this event" });
+
+    const { status } = req.body;
+
+    if (event.status === "DRAFT") {
+      // DRAFT: allow editing all fields
+      const allowedFields = ["name", "description", "startDate", "endDate", "registrationDeadline",
+        "registrationLimit", "registrationFee", "eligibility", "tags", "customFields",
+        "availableSizes", "availableColors", "merchVariants", "purchaseLimit", "status"];
+      allowedFields.forEach(f => { if (req.body[f] !== undefined) event[f] = req.body[f]; });
+    } else if (event.status === "PUBLISHED") {
+      // PUBLISHED: only allow extending deadline/limit and editing description; also allow marking ONGOING
+      const allowed = ["description", "registrationDeadline", "registrationLimit", "status"];
+      allowed.forEach(f => { if (req.body[f] !== undefined) event[f] = req.body[f]; });
+      // Enforce: deadline can only be extended, limit can only be increased
+      if (req.body.registrationDeadline && new Date(req.body.registrationDeadline) < new Date(event.registrationDeadline)) {
+        return res.status(400).json({ message: "Cannot shorten registration deadline after publishing" });
+      }
+      if (req.body.registrationLimit && Number(req.body.registrationLimit) < (event.registrationLimit || 0)) {
+        return res.status(400).json({ message: "Cannot reduce registration limit after publishing" });
+      }
+    } else if (event.status === "ONGOING") {
+      // ONGOING: only allow marking COMPLETED
+      if (status && status === "COMPLETED") event.status = "COMPLETED";
+      else return res.status(400).json({ message: "Only status change to COMPLETED allowed for ongoing events" });
+    } else {
+      return res.status(400).json({ message: "Completed or closed events cannot be edited" });
+    }
+
+    if (status && event.status === "DRAFT" && status === "ONGOING") {
+      event.status = "ONGOING";
+    }
+
+    await event.save();
+    res.json(event);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+const getMyOngoingEvents = async (req, res) => {
+  try {
+    const organizer = await Organizer.findOne({ user: req.user.id });
+    if (!organizer) return res.status(404).json({ message: "Organizer profile not found" });
+
+    const now = new Date();
+    const events = await Event.find({
+      organizer: organizer._id,
+      $or: [
+        { status: "ONGOING" },
+        { status: "PUBLISHED", startDate: { $lte: now }, endDate: { $gte: now } },
+      ],
+    }).sort({ startDate: 1 });
+
+    res.json(events);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+const getEventAnalytics = async (req, res) => {
+  try {
+    const organizer = await Organizer.findOne({ user: req.user.id });
+    if (!organizer) return res.status(404).json({ message: "Organizer profile not found" });
+
+    const event = await Event.findById(req.params.id);
+    if (!event) return res.status(404).json({ message: "Event not found" });
+    if (!event.organizer.equals(organizer._id)) return res.status(403).json({ message: "Not authorized" });
+
+    const registrations = await Registration.find({ event: event._id });
+
+    const totalRegistrations = registrations.length;
+    const attended = registrations.filter(r => r.attendance?.scanned).length;
+    const revenue = registrations
+      .filter(r => r.paymentStatus === "APPROVED" || r.paymentStatus === "NOT_REQUIRED")
+      .length * (event.registrationFee || 0);
+
+    // Registration timeline — last 7 days
+    const timeline = [];
+    for (let i = 6; i >= 0; i--) {
+      const day = new Date();
+      day.setHours(0, 0, 0, 0);
+      day.setDate(day.getDate() - i);
+      const next = new Date(day);
+      next.setDate(next.getDate() + 1);
+      const count = registrations.filter(r => {
+        const d = new Date(r.createdAt);
+        return d >= day && d < next;
+      }).length;
+      timeline.push({ date: day.toLocaleDateString("en-US", { month: "short", day: "numeric" }), count });
+    }
+
+    const statusBreakdown = registrations.reduce((acc, r) => {
+      acc[r.paymentStatus || "NOT_REQUIRED"] = (acc[r.paymentStatus || "NOT_REQUIRED"] || 0) + 1;
+      return acc;
+    }, {});
+
+    res.json({
+      totalRegistrations,
+      attended,
+      attendanceRate: totalRegistrations > 0 ? ((attended / totalRegistrations) * 100).toFixed(1) : 0,
+      revenue,
+      timeline,
+      statusBreakdown,
+    });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+module.exports = { createEvent, publishEvent, updateEvent, getMyEvents, getMyOngoingEvents, getAllEvents, getEventById, getTrendingEvents, getEventAnalytics };
