@@ -1,6 +1,7 @@
 import { useEffect, useState, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import api from "../api/axios";
+import { fuzzyMatch } from "../utils/fuzzyMatch";
 
 // Badge style definitions for attendance and payment statuses
 const BADGE = {
@@ -93,7 +94,7 @@ export default function EventRegistrations() {
       const name = (r.participant?.displayName || r.participant?.email || "").toLowerCase();
       const ticket = (r.ticketId || "").toLowerCase();
       const q = search.toLowerCase();
-      if (q && !name.includes(q) && !ticket.includes(q)) return false;
+      if (q && !fuzzyMatch(name, q) && !fuzzyMatch(ticket, q)) return false;
 
       if (filterAttendance === "present" && !r.attendance?.scanned) return false;
       if (filterAttendance === "absent" && r.attendance?.scanned) return false;

@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../api/axios";
+import { fuzzyMatch } from "../utils/fuzzyMatch";
 import "../App.css";
 
 export default function Events() {
@@ -81,6 +82,15 @@ export default function Events() {
   };
 
   const hasActiveFilters = search || type || tags || minFee || maxFee || startDateFrom || startDateTo || followedOnly;
+
+  // Filter events client-side with fuzzy matching
+  const filteredEvents = events.filter(event => {
+    const q = search.toLowerCase();
+    const name = event.name?.toLowerCase() || "";
+    const desc = event.description?.toLowerCase() || "";
+    if (q && !fuzzyMatch(name, q) && !fuzzyMatch(desc, q)) return false;
+    return true;
+  });
 
   return (
     <div className="container">
@@ -377,7 +387,7 @@ export default function Events() {
       )}
 
       {/* Event list */}
-      {events.map((event) => (
+      {filteredEvents.map((event) => (
         <div className="card" key={event._id}>
           <h3>{event.name}</h3>
           <p>{event.description}</p>

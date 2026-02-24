@@ -3,6 +3,7 @@ import api from "../api/axios";
 import CalendarExport from "../components/CalendarExport";
 import BatchCalendarExport from "../components/BatchCalendarExport";
 import PaymentProofUpload from "../components/PaymentProofUpload";
+import { fuzzyMatch } from "../utils/fuzzyMatch";
 import "../App.css";
 
 export default function MyEvents() {
@@ -19,6 +20,7 @@ export default function MyEvents() {
   const [showPaymentUpload, setShowPaymentUpload] = useState(false);
   const [paymentRegistration, setPaymentRegistration] = useState(null);
   const [error, setError] = useState("");
+  const [search, setSearch] = useState("");
 
   useEffect(() => {
     const fetchMyEvents = async () => {
@@ -183,7 +185,14 @@ export default function MyEvents() {
     }
   };
 
-  const filteredRegistrations = getFilteredRegistrations();
+  // Filter registrations with fuzzy matching
+  const filteredRegistrations = getFilteredRegistrations().filter(reg => {
+    const q = search.toLowerCase();
+    const name = reg.event?.name?.toLowerCase() || "";
+    const desc = reg.event?.description?.toLowerCase() || "";
+    if (q && !fuzzyMatch(name, q) && !fuzzyMatch(desc, q)) return false;
+    return true;
+  });
 
   const TabButton = ({ value, label }) => (
     <button
