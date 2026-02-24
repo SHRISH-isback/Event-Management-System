@@ -222,10 +222,4 @@ const generateOutlookCalendarURL = (event, registration = null) => {
   return `https://outlook.live.com/calendar/0/deeplink/compose?${params.toString()}`;
 };
 
-module.exports = {
-  generateICSFile,
-  generateBatchICSFile,
-  generateGoogleCalendarURL,
-  generateOutlookCalendarURL,
-  formatICSDate
-};
+module.exports = {generateICSFile,generateBatchICSFile,generateGoogleCalendarURL,generateOutlookCalendarURL,formatICSDate};

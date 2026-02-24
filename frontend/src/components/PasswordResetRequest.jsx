@@ -25,6 +25,7 @@ export default function PasswordResetRequest() {
     }
   };
 
+  // Submits a new password reset request with a reason
   const handleSubmitRequest = async (e) => {
     e.preventDefault();
     if (!reason.trim()) {
@@ -44,9 +45,10 @@ export default function PasswordResetRequest() {
     }
   };
 
+  // Returns inline styles for the status badge based on request status
   const getStatusBadgeStyle = (status) => {
     const styles = {
-      PENDING: { backgroundColor: "#fef3c7", color: "#f59e0b" },
+      PENDING:  { backgroundColor: "#fef3c7", color: "#f59e0b" },
       APPROVED: { backgroundColor: "#d1fae5", color: "#10b981" },
       REJECTED: { backgroundColor: "#fee2e2", color: "#ef4444" },
     };
@@ -57,11 +59,7 @@ export default function PasswordResetRequest() {
     <div style={{ marginTop: "30px" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
         <h3>Password Reset Requests</h3>
-        <button
-          className="btn"
-          onClick={() => setShowModal(true)}
-          style={{ backgroundColor: "#3b82f6" }}
-        >
+        <button className="btn" onClick={() => setShowModal(true)} style={{ backgroundColor: "#3b82f6" }}>
           Request Password Reset
         </button>
       </div>
@@ -69,6 +67,7 @@ export default function PasswordResetRequest() {
       {error && <p className="error">{error}</p>}
       {success && <p style={{ color: "#10b981", marginBottom: "15px" }}>{success}</p>}
 
+      {/* Request history list */}
       {loading ? (
         <p>Loading requests...</p>
       ) : requests.length === 0 ? (
@@ -78,23 +77,11 @@ export default function PasswordResetRequest() {
       ) : (
         <div style={{ display: "grid", gap: "15px" }}>
           {requests.map((request) => (
-            <div
-              key={request._id}
-              className="card"
-              style={{ padding: "15px", border: "1px solid #e5e7eb" }}
-            >
+            <div key={request._id} className="card" style={{ padding: "15px", border: "1px solid #e5e7eb" }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "start", marginBottom: "10px" }}>
                 <div style={{ flex: 1 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "10px" }}>
-                    <span
-                      style={{
-                        padding: "4px 12px",
-                        borderRadius: "12px",
-                        fontSize: "12px",
-                        fontWeight: "bold",
-                        ...getStatusBadgeStyle(request.status),
-                      }}
-                    >
+                    <span style={{ padding: "4px 12px", borderRadius: "12px", fontSize: "12px", fontWeight: "bold", ...getStatusBadgeStyle(request.status) }}>
                       {request.status}
                     </span>
                     <span style={{ fontSize: "14px", color: "#6b7280" }}>
@@ -126,31 +113,14 @@ export default function PasswordResetRequest() {
         </div>
       )}
 
-      {}
+      {/* Modal for submitting a new request */}
       {showModal && (
         <div
-          style={{
-            position: "fixed",
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            backgroundColor: "rgba(0,0,0,0.5)",
-            display: "flex",
-            justifyContent: "center",
-            alignItems: "center",
-            zIndex: 1000,
-          }}
+          style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.5)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 1000 }}
           onClick={() => setShowModal(false)}
         >
           <div
-            style={{
-              backgroundColor: "white",
-              padding: "30px",
-              borderRadius: "8px",
-              maxWidth: "500px",
-              width: "90%",
-            }}
+            style={{ backgroundColor: "white", padding: "30px", borderRadius: "8px", maxWidth: "500px", width: "90%" }}
             onClick={(e) => e.stopPropagation()}
           >
             <h3 style={{ marginBottom: "20px" }}>Request Password Reset</h3>
@@ -164,15 +134,7 @@ export default function PasswordResetRequest() {
                   value={reason}
                   onChange={(e) => setReason(e.target.value)}
                   placeholder="Explain why you need a password reset..."
-                  style={{
-                    width: "100%",
-                    minHeight: "100px",
-                    padding: "10px",
-                    border: "1px solid #d1d5db",
-                    borderRadius: "4px",
-                    resize: "vertical",
-                    fontFamily: "inherit",
-                  }}
+                  style={{ width: "100%", minHeight: "100px", padding: "10px", border: "1px solid #d1d5db", borderRadius: "4px", resize: "vertical", fontFamily: "inherit" }}
                   required
                 />
               </div>
@@ -180,32 +142,14 @@ export default function PasswordResetRequest() {
               <div style={{ display: "flex", gap: "10px", justifyContent: "flex-end" }}>
                 <button
                   type="button"
-                  onClick={() => {
-                    setShowModal(false);
-                    setReason("");
-                    setError("");
-                  }}
-                  style={{
-                    padding: "10px 20px",
-                    border: "1px solid #d1d5db",
-                    borderRadius: "4px",
-                    backgroundColor: "white",
-                    cursor: "pointer",
-                  }}
+                  onClick={() => { setShowModal(false); setReason(""); setError(""); }}
+                  style={{ padding: "10px 20px", border: "1px solid #d1d5db", borderRadius: "4px", backgroundColor: "white", cursor: "pointer" }}
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  style={{
-                    padding: "10px 20px",
-                    backgroundColor: "#3b82f6",
-                    color: "white",
-                    border: "none",
-                    borderRadius: "4px",
-                    cursor: "pointer",
-                    fontWeight: "bold",
-                  }}
+                  style={{ padding: "10px 20px", backgroundColor: "#3b82f6", color: "white", border: "none", borderRadius: "4px", cursor: "pointer", fontWeight: "bold" }}
                 >
                   Submit Request
                 </button>

@@ -18,6 +18,7 @@ import OrganizerDetail from "./pages/OrganizerDetail";
 import AttendanceDashboard from "./pages/AttendanceDashboard";
 import PasswordResetManagement from "./pages/PasswordResetManagement";
 import MerchandiseOrders from "./pages/MerchandiseOrders";
+import PaymentVerification from "./pages/PaymentVerification";
 
 function App() {
   return (
@@ -38,7 +39,7 @@ function App() {
         <Route
           path="/admin"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute allowedRoles={["ADMIN"]}>
               <>
                 <Navbar />
                 <AdminDashboard />
@@ -50,7 +51,7 @@ function App() {
         <Route
           path="/organizer"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute allowedRoles={["ORGANIZER"]}>
               <>
                 <Navbar />
                 <OrganizerDashboard />
@@ -61,7 +62,7 @@ function App() {
         <Route
           path="/organizer/create"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute allowedRoles={["ORGANIZER"]}>
               <>
                 <Navbar />
                 <CreateEvent />
@@ -128,7 +129,7 @@ function App() {
         <Route
           path="/organizer/profile"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute allowedRoles={["ORGANIZER"]}>
               <>
                 <Navbar />
                 <OrganizerProfile />
@@ -139,7 +140,7 @@ function App() {
         <Route
           path="/organizer/event/:eventId/registrations"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute allowedRoles={["ORGANIZER", "ADMIN"]}>
               <>
                 <Navbar />
                 <EventRegistrations />
@@ -151,7 +152,7 @@ function App() {
         <Route
           path="/organizer/event/:eventId/attendance"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute allowedRoles={["ORGANIZER"]}>
               <>
                 <Navbar />
                 <AttendanceDashboard />
@@ -163,10 +164,22 @@ function App() {
         <Route
           path="/organizer/merchandise-orders"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute allowedRoles={["ORGANIZER"]}>
               <>
                 <Navbar />
                 <MerchandiseOrders />
+              </>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/organizer/payment-verification"
+          element={
+            <ProtectedRoute allowedRoles={["ORGANIZER"]}>
+              <>
+                <Navbar />
+                <PaymentVerification />
               </>
             </ProtectedRoute>
           }
@@ -199,7 +212,7 @@ function App() {
         <Route
           path="/admin/password-resets"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute allowedRoles={["ADMIN"]}>
               <>
                 <Navbar />
                 <PasswordResetManagement />

@@ -2,6 +2,7 @@ import { useEffect, useState, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import api from "../api/axios";
 
+// Badge style definitions for attendance and payment statuses
 const BADGE = {
   present: { bg: "#d1fae5", color: "#065f46", border: "#6ee7b7", label: "Present" },
   absent:  { bg: "#fee2e2", color: "#991b1b", border: "#fca5a5", label: "Absent"  },
@@ -10,6 +11,7 @@ const BADGE = {
   rejected:{ bg: "#fee2e2", color: "#991b1b", border: "#fca5a5", label: "Rejected"},
 };
 
+// Pill badge for attendance/payment status display
 function Badge({ type }) {
   const b = BADGE[type] || BADGE.absent;
   return (
@@ -28,6 +30,7 @@ function Badge({ type }) {
   );
 }
 
+// Summary stat card used in the statistics row
 function StatCard({ label, value, bg, accent }) {
   return (
     <div style={{
@@ -55,6 +58,7 @@ export default function EventRegistrations() {
   const [filterPayment, setFilterPayment] = useState("all");
   const [expandedId, setExpandedId] = useState(null);
 
+  // Fetch event details and all registrations in parallel
   useEffect(() => {
     Promise.all([
       api.get(`/events/${eventId}`),
@@ -68,14 +72,17 @@ export default function EventRegistrations() {
       .finally(() => setLoading(false));
   }, [eventId]);
 
+  // Compute summary statistics from the registrations list
   const stats = useMemo(() => {
     const total = registrations.length;
     const present = registrations.filter(r => r.attendance?.scanned).length;
     const merch = registrations.filter(r => r.merchDetails).length;
     const pendingPayment = registrations.filter(r => r.paymentStatus === "PENDING").length;
-    return { total, present, absent: total - present, merch, pendingPayment };
+    const hasPaidRegistrations = registrations.some(r => r.paymentStatus && r.paymentStatus !== "NOT_REQUIRED");
+    return { total, present, absent: total - present, merch, pendingPayment, hasPaidRegistrations };
   }, [registrations]);
 
+  // Apply search and filter criteria to produce the visible list
   const filtered = useMemo(() => {
     return registrations.filter(r => {
       const name = (r.participant?.displayName || r.participant?.email || "").toLowerCase();
@@ -96,9 +103,11 @@ export default function EventRegistrations() {
   }, [registrations, search, filterAttendance, filterPayment]);
 
   const isMerch = event?.type === "MERCH";
+  const showPaymentFilter = isMerch || stats.hasPaidRegistrations;
 
   return (
     <div style={{ maxWidth: "1100px", margin: "0 auto", padding: "24px 16px" }}>
+      {/* Page header with back navigation */}
       <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "8px" }}>
         <button
           onClick={() => navigate(-1)}
@@ -107,7 +116,7 @@ export default function EventRegistrations() {
             borderRadius: "6px", cursor: "pointer", fontSize: "14px", color: "#374151",
           }}
         >
-          ← Back
+          Back
         </button>
         <div>
           <h2 style={{ margin: 0, fontSize: "22px", fontWeight: 700, color: "#111827" }}>
@@ -133,7 +142,7 @@ export default function EventRegistrations() {
 
       {loading && (
         <div style={{ textAlign: "center", padding: "60px 0", color: "#6b7280" }}>
-          Loading registrations…
+          Loading registrations...
         </div>
       )}
       {error && (
@@ -147,6 +156,7 @@ export default function EventRegistrations() {
 
       {!loading && !error && (
         <>
+          {/* Summary statistics row */}
           <div style={{
             display: "grid",
             gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
@@ -157,7 +167,7 @@ export default function EventRegistrations() {
             <StatCard label="Total Registered" value={stats.total} bg="#dbeafe" accent="#3b82f6" />
             <StatCard label="Present" value={stats.present} bg="#d1fae5" accent="#10b981" />
             <StatCard label="Absent" value={stats.absent} bg="#fee2e2" accent="#ef4444" />
-            {isMerch && (
+            {showPaymentFilter && (
               <StatCard label="Pending Payment" value={stats.pendingPayment} bg="#fef3c7" accent="#f59e0b" />
             )}
             <StatCard
@@ -168,13 +178,14 @@ export default function EventRegistrations() {
             />
           </div>
 
+          {/* Search and filter controls */}
           <div style={{
             display: "flex", gap: "10px", flexWrap: "wrap", marginBottom: "16px",
             alignItems: "center",
           }}>
             <input
               type="text"
-              placeholder="Search by name or ticket ID…"
+              placeholder="Search by name or ticket ID..."
               value={search}
               onChange={e => setSearch(e.target.value)}
               style={{
@@ -194,7 +205,7 @@ export default function EventRegistrations() {
               <option value="present">Present</option>
               <option value="absent">Absent</option>
             </select>
-            {isMerch && (
+            {showPaymentFilter && (
               <select
                 value={filterPayment}
                 onChange={e => setFilterPayment(e.target.value)}
@@ -223,9 +234,10 @@ export default function EventRegistrations() {
             </div>
           ) : (
             <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+              {/* Table header row */}
               <div style={{
                 display: "grid",
-                gridTemplateColumns: isMerch
+                gridTemplateColumns: showPaymentFilter
                   ? "2fr 1.2fr 1fr 1fr 1fr 40px"
                   : "2fr 1.2fr 1fr 1fr 40px",
                 gap: "8px",
@@ -241,11 +253,12 @@ export default function EventRegistrations() {
                 <span>Participant</span>
                 <span>Ticket ID</span>
                 <span>Attendance</span>
-                {isMerch && <span>Payment</span>}
+                {showPaymentFilter && <span>Payment</span>}
                 <span>Registered</span>
                 <span></span>
               </div>
 
+              {/* Registration rows — click to expand details */}
               {filtered.map(r => {
                 const isExpanded = expandedId === r._id;
                 const displayName = r.participant?.displayName || r.participant?.email || "—";
@@ -269,7 +282,7 @@ export default function EventRegistrations() {
                     <div
                       style={{
                         display: "grid",
-                        gridTemplateColumns: isMerch
+                        gridTemplateColumns: showPaymentFilter
                           ? "2fr 1.2fr 1fr 1fr 1fr 40px"
                           : "2fr 1.2fr 1fr 1fr 40px",
                         gap: "8px",
@@ -291,7 +304,7 @@ export default function EventRegistrations() {
                         {r.ticketId}
                       </span>
                       <span><Badge type={attendanceStatus} /></span>
-                      {isMerch && (
+                      {showPaymentFilter && (
                         <span>{paymentBadgeType ? <Badge type={paymentBadgeType} /> : <span style={{ color: "#9ca3af", fontSize: "12px" }}>—</span>}</span>
                       )}
                       <span style={{ fontSize: "12px", color: "#9ca3af" }}>
@@ -302,6 +315,7 @@ export default function EventRegistrations() {
                       </span>
                     </div>
 
+                    {/* Expanded detail panel: attendance, merch, form responses, participant info */}
                     {isExpanded && (
                       <div style={{
                         padding: "12px 16px 16px",

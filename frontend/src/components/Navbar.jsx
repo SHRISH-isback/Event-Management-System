@@ -6,7 +6,8 @@ export default function Navbar() {
   const role = localStorage.getItem("role");
 
   const logout = () => {
-    localStorage.clear();
+    localStorage.removeItem("token");
+    localStorage.removeItem("role");
     navigate("/");
   };
 
@@ -16,49 +17,32 @@ export default function Navbar() {
         <span className="logo">EMS</span>
         <Link to="/events" className="nav-link">Events</Link>
 
+        {/* Role-based navigation links */}
         {role === "ADMIN" && (
-          <Link to="/admin" className="nav-link">
-            Admin
-          </Link>
+          <Link to="/admin" className="nav-link">Admin</Link>
         )}
-
         {role === "PARTICIPANT" && (
           <>
-            <Link to="/my-events" className="nav-link">
-              My Events
-            </Link>
-            <Link to="/clubs" className="nav-link">
-              Clubs
-            </Link>
+            <Link to="/my-events" className="nav-link">My Events</Link>
+            <Link to="/clubs" className="nav-link">Clubs</Link>
           </>
         )}
         {role === "ORGANIZER" && (
           <>
-            <Link to="/organizer" className="nav-link">
-              My Events
-            </Link>
-            <Link to="/organizer/merchandise-orders" className="nav-link">
-              Merch Orders
-            </Link>
+            <Link to="/organizer" className="nav-link">My Events</Link>
+            <Link to="/organizer/merchandise-orders" className="nav-link">Merch Orders</Link>
           </>
         )}
-
       </div>
 
       <div className="nav-right">
         {role === "PARTICIPANT" && (
-          <Link to="/profile" className="nav-link">
-            Profile
-          </Link>
+          <Link to="/profile" className="nav-link">Profile</Link>
         )}
         {role === "ORGANIZER" && (
-          <Link to="/organizer/profile" className="nav-link">
-            Profile
-          </Link>
+          <Link to="/organizer/profile" className="nav-link">Profile</Link>
         )}
-        <button className="btn btn-logout" onClick={logout}>
-          Logout
-        </button>
+        <button className="btn btn-logout" onClick={logout}>Logout</button>
       </div>
     </nav>
   );

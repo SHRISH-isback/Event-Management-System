@@ -32,9 +32,10 @@ export default function DiscussionForum({ eventId }) {
     }
   }, [eventId]);
 
+  // Initialize Socket.IO and listen for real-time forum events
   const initializeSocket = useCallback(() => {
     const token = localStorage.getItem("token");
-    
+
     socketRef.current = io(process.env.REACT_APP_API_URL || "http://localhost:5000", {
       auth: { token },
     });
@@ -52,17 +53,13 @@ export default function DiscussionForum({ eventId }) {
 
     socketRef.current.on("message-pinned", ({ messageId, isPinned }) => {
       setMessages((prev) =>
-        prev.map((msg) =>
-          msg._id === messageId ? { ...msg, isPinned } : msg
-        )
+        prev.map((msg) => (msg._id === messageId ? { ...msg, isPinned } : msg))
       );
     });
 
     socketRef.current.on("reaction-update", ({ messageId, reactions }) => {
       setMessages((prev) =>
-        prev.map((msg) =>
-          msg._id === messageId ? { ...msg, reactions } : msg
-        )
+        prev.map((msg) => (msg._id === messageId ? { ...msg, reactions } : msg))
       );
     });
   }, [eventId]);
@@ -72,27 +69,20 @@ export default function DiscussionForum({ eventId }) {
     initializeSocket();
 
     return () => {
-      if (socketRef.current) {
-        socketRef.current.disconnect();
-      }
+      if (socketRef.current) socketRef.current.disconnect();
     };
   }, [eventId, fetchMessages, initializeSocket]);
 
+  // Post a regular message or a reply (parentMessage set when replying)
   const handlePostMessage = async (e) => {
     e.preventDefault();
     if (!newMessage.trim()) return;
 
     try {
-      const endpoint = replyingTo
-        ? `/forum/${eventId}/messages`
-        : `/forum/${eventId}/messages`;
-
-      const payload = {
+      await api.post(`/forum/${eventId}/messages`, {
         content: newMessage,
         ...(replyingTo && { parentMessage: replyingTo._id }),
-      };
-
-      await api.post(endpoint, payload);
+      });
       setNewMessage("");
       setReplyingTo(null);
     } catch (err) {
@@ -100,13 +90,12 @@ export default function DiscussionForum({ eventId }) {
     }
   };
 
+  // Organizer-only: posts a highlighted announcement message
   const handlePostAnnouncement = async () => {
     if (!newMessage.trim()) return;
 
     try {
-      await api.post(`/forum/${eventId}/announcements`, {
-        content: newMessage,
-      });
+      await api.post(`/forum/${eventId}/announcements`, { content: newMessage });
       setNewMessage("");
     } catch (err) {
       setError(err.response?.data?.message || "Failed to post announcement");
@@ -160,14 +149,10 @@ export default function DiscussionForum({ eventId }) {
     });
   };
 
-  const getReplies = (parentId) => {
-    return messages.filter((msg) => msg.parentMessage === parentId);
-  };
+  const getReplies = (parentId) => messages.filter((msg) => msg.parentMessage === parentId);
+  const getTopLevelMessages = () => messages.filter((msg) => !msg.parentMessage);
 
-  const getTopLevelMessages = () => {
-    return messages.filter((msg) => !msg.parentMessage);
-  };
-
+  // Renders a single message card with reactions, reply, pin, and delete controls
   const renderMessage = (message, isReply = false) => {
     const replies = getReplies(message._id);
     const hasReplies = replies.length > 0;
@@ -181,17 +166,9 @@ export default function DiscussionForum({ eventId }) {
           marginLeft: isReply ? "40px" : "0",
           marginBottom: "15px",
           padding: "15px",
-          backgroundColor: message.isAnnouncement
-            ? "#fef3c7"
-            : message.isPinned
-            ? "#dbeafe"
-            : "#f9fafb",
+          backgroundColor: message.isAnnouncement ? "#fef3c7" : message.isPinned ? "#dbeafe" : "#f9fafb",
           borderRadius: "8px",
-          borderLeft: message.isAnnouncement
-            ? "4px solid #f59e0b"
-            : message.isPinned
-            ? "4px solid #3b82f6"
-            : "4px solid #e5e7eb",
+          borderLeft: message.isAnnouncement ? "4px solid #f59e0b" : message.isPinned ? "4px solid #3b82f6" : "4px solid #e5e7eb",
         }}
       >
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "start" }}>
@@ -202,37 +179,19 @@ export default function DiscussionForum({ eventId }) {
                 {new Date(message.createdAt).toLocaleString()}
               </span>
               {message.isAnnouncement && (
-                <span
-                  style={{
-                    fontSize: "10px",
-                    padding: "2px 8px",
-                    backgroundColor: "#f59e0b",
-                    color: "white",
-                    borderRadius: "4px",
-                    fontWeight: "bold",
-                  }}
-                >
+                <span style={{ fontSize: "10px", padding: "2px 8px", backgroundColor: "#f59e0b", color: "white", borderRadius: "4px", fontWeight: "bold" }}>
                   ANNOUNCEMENT
                 </span>
               )}
               {message.isPinned && !message.isAnnouncement && (
-                <span
-                  style={{
-                    fontSize: "10px",
-                    padding: "2px 8px",
-                    backgroundColor: "#3b82f6",
-                    color: "white",
-                    borderRadius: "4px",
-                    fontWeight: "bold",
-                  }}
-                >
+                <span style={{ fontSize: "10px", padding: "2px 8px", backgroundColor: "#3b82f6", color: "white", borderRadius: "4px", fontWeight: "bold" }}>
                   PINNED
                 </span>
               )}
             </div>
             <p style={{ margin: "10px 0", whiteSpace: "pre-wrap" }}>{message.content}</p>
 
-            {}
+            {/* Emoji reactions: grouped by emoji with counts */}
             <div style={{ display: "flex", gap: "10px", alignItems: "center", marginTop: "10px" }}>
               {message.reactions && message.reactions.length > 0 && (
                 <div style={{ display: "flex", gap: "5px", flexWrap: "wrap" }}>
@@ -264,51 +223,21 @@ export default function DiscussionForum({ eventId }) {
                 </div>
               )}
 
-              {}
+              {/* Emoji picker popup */}
               <div style={{ position: "relative" }}>
                 <button
-                  onClick={() =>
-                    setShowEmojiPicker(showEmojiPicker === message._id ? null : message._id)
-                  }
-                  style={{
-                    padding: "4px 8px",
-                    border: "1px solid #d1d5db",
-                    borderRadius: "12px",
-                    backgroundColor: "white",
-                    cursor: "pointer",
-                    fontSize: "14px",
-                  }}
+                  onClick={() => setShowEmojiPicker(showEmojiPicker === message._id ? null : message._id)}
+                  style={{ padding: "4px 8px", border: "1px solid #d1d5db", borderRadius: "12px", backgroundColor: "white", cursor: "pointer", fontSize: "14px" }}
                 >
                   ➕
                 </button>
                 {showEmojiPicker === message._id && (
-                  <div
-                    style={{
-                      position: "absolute",
-                      top: "100%",
-                      left: 0,
-                      marginTop: "5px",
-                      padding: "10px",
-                      backgroundColor: "white",
-                      border: "1px solid #d1d5db",
-                      borderRadius: "8px",
-                      boxShadow: "0 4px 6px rgba(0,0,0,0.1)",
-                      zIndex: 10,
-                      display: "flex",
-                      gap: "5px",
-                    }}
-                  >
+                  <div style={{ position: "absolute", top: "100%", left: 0, marginTop: "5px", padding: "10px", backgroundColor: "white", border: "1px solid #d1d5db", borderRadius: "8px", boxShadow: "0 4px 6px rgba(0,0,0,0.1)", zIndex: 10, display: "flex", gap: "5px" }}>
                     {emojis.map((emoji) => (
                       <button
                         key={emoji}
                         onClick={() => handleAddReaction(message._id, emoji)}
-                        style={{
-                          padding: "5px",
-                          border: "none",
-                          backgroundColor: "transparent",
-                          cursor: "pointer",
-                          fontSize: "18px",
-                        }}
+                        style={{ padding: "5px", border: "none", backgroundColor: "transparent", cursor: "pointer", fontSize: "18px" }}
                       >
                         {emoji}
                       </button>
@@ -318,35 +247,19 @@ export default function DiscussionForum({ eventId }) {
               </div>
             </div>
 
-            {}
             <div style={{ display: "flex", gap: "10px", marginTop: "10px" }}>
               {!isReply && (
                 <button
                   onClick={() => setReplyingTo(message)}
-                  style={{
-                    padding: "5px 10px",
-                    fontSize: "12px",
-                    border: "1px solid #d1d5db",
-                    borderRadius: "4px",
-                    backgroundColor: "white",
-                    cursor: "pointer",
-                  }}
+                  style={{ padding: "5px 10px", fontSize: "12px", border: "1px solid #d1d5db", borderRadius: "4px", backgroundColor: "white", cursor: "pointer" }}
                 >
                   Reply
                 </button>
               )}
-
               {hasReplies && (
                 <button
                   onClick={() => toggleThread(message._id)}
-                  style={{
-                    padding: "5px 10px",
-                    fontSize: "12px",
-                    border: "1px solid #d1d5db",
-                    borderRadius: "4px",
-                    backgroundColor: "white",
-                    cursor: "pointer",
-                  }}
+                  style={{ padding: "5px 10px", fontSize: "12px", border: "1px solid #d1d5db", borderRadius: "4px", backgroundColor: "white", cursor: "pointer" }}
                 >
                   {expandedThreads.has(message._id) ? "Hide" : "Show"} {replies.length} {replies.length === 1 ? "Reply" : "Replies"}
                 </button>
@@ -354,36 +267,20 @@ export default function DiscussionForum({ eventId }) {
             </div>
           </div>
 
-          {}
+          {/* Organizer-only controls: pin and delete */}
           {isOrganizer && (
             <div style={{ display: "flex", gap: "5px" }}>
               {!message.isAnnouncement && (
                 <button
                   onClick={() => handleTogglePin(message._id)}
-                  style={{
-                    padding: "5px 10px",
-                    fontSize: "12px",
-                    border: "1px solid #d1d5db",
-                    borderRadius: "4px",
-                    backgroundColor: message.isPinned ? "#3b82f6" : "white",
-                    color: message.isPinned ? "white" : "black",
-                    cursor: "pointer",
-                  }}
+                  style={{ padding: "5px 10px", fontSize: "12px", border: "1px solid #d1d5db", borderRadius: "4px", backgroundColor: message.isPinned ? "#3b82f6" : "white", color: message.isPinned ? "white" : "black", cursor: "pointer" }}
                 >
                   📌
                 </button>
               )}
               <button
                 onClick={() => handleDeleteMessage(message._id)}
-                style={{
-                  padding: "5px 10px",
-                  fontSize: "12px",
-                  border: "1px solid #ef4444",
-                  borderRadius: "4px",
-                  backgroundColor: "white",
-                  color: "#ef4444",
-                  cursor: "pointer",
-                }}
+                style={{ padding: "5px 10px", fontSize: "12px", border: "1px solid #ef4444", borderRadius: "4px", backgroundColor: "white", color: "#ef4444", cursor: "pointer" }}
               >
                 🗑️
               </button>
@@ -391,7 +288,7 @@ export default function DiscussionForum({ eventId }) {
           )}
         </div>
 
-        {}
+        {/* Threaded replies — shown when thread is expanded */}
         {hasReplies && expandedThreads.has(message._id) && (
           <div style={{ marginTop: "15px" }}>
             {replies.map((reply) => renderMessage(reply, true))}
@@ -401,65 +298,29 @@ export default function DiscussionForum({ eventId }) {
     );
   };
 
-  if (loading) {
-    return <div>Loading forum...</div>;
-  }
+  if (loading) return <div>Loading forum...</div>;
 
   return (
-    <div
-      style={{
-        marginTop: "30px",
-        padding: "20px",
-        backgroundColor: "white",
-        borderRadius: "8px",
-        boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
-      }}
-    >
+    <div style={{ marginTop: "30px", padding: "20px", backgroundColor: "white", borderRadius: "8px", boxShadow: "0 1px 3px rgba(0,0,0,0.1)" }}>
       <h3 style={{ marginBottom: "20px" }}>Discussion Forum</h3>
 
       {error && (
-        <div
-          style={{
-            padding: "10px",
-            backgroundColor: "#fee2e2",
-            color: "#dc2626",
-            borderRadius: "4px",
-            marginBottom: "15px",
-          }}
-        >
+        <div style={{ padding: "10px", backgroundColor: "#fee2e2", color: "#dc2626", borderRadius: "4px", marginBottom: "15px" }}>
           {error}
         </div>
       )}
 
-      {}
+      {/* Message compose box — supports replies and organizer announcements */}
       <form onSubmit={handlePostMessage} style={{ marginBottom: "20px" }}>
         {replyingTo && (
-          <div
-            style={{
-              padding: "10px",
-              backgroundColor: "#f3f4f6",
-              borderRadius: "4px",
-              marginBottom: "10px",
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-            }}
-          >
+          <div style={{ padding: "10px", backgroundColor: "#f3f4f6", borderRadius: "4px", marginBottom: "10px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <span style={{ fontSize: "14px" }}>
               Replying to <strong>{replyingTo.authorName}</strong>
             </span>
             <button
               type="button"
               onClick={() => setReplyingTo(null)}
-              style={{
-                padding: "2px 8px",
-                fontSize: "12px",
-                border: "none",
-                backgroundColor: "#ef4444",
-                color: "white",
-                borderRadius: "4px",
-                cursor: "pointer",
-              }}
+              style={{ padding: "2px 8px", fontSize: "12px", border: "none", backgroundColor: "#ef4444", color: "white", borderRadius: "4px", cursor: "pointer" }}
             >
               Cancel
             </button>
@@ -469,28 +330,12 @@ export default function DiscussionForum({ eventId }) {
           value={newMessage}
           onChange={(e) => setNewMessage(e.target.value)}
           placeholder={replyingTo ? "Write a reply..." : "Share your thoughts..."}
-          style={{
-            width: "100%",
-            minHeight: "80px",
-            padding: "10px",
-            border: "1px solid #d1d5db",
-            borderRadius: "4px",
-            resize: "vertical",
-            fontFamily: "inherit",
-          }}
+          style={{ width: "100%", minHeight: "80px", padding: "10px", border: "1px solid #d1d5db", borderRadius: "4px", resize: "vertical", fontFamily: "inherit" }}
         />
         <div style={{ display: "flex", gap: "10px", marginTop: "10px" }}>
           <button
             type="submit"
-            style={{
-              padding: "10px 20px",
-              backgroundColor: "#3b82f6",
-              color: "white",
-              border: "none",
-              borderRadius: "4px",
-              cursor: "pointer",
-              fontWeight: "bold",
-            }}
+            style={{ padding: "10px 20px", backgroundColor: "#3b82f6", color: "white", border: "none", borderRadius: "4px", cursor: "pointer", fontWeight: "bold" }}
           >
             {replyingTo ? "Post Reply" : "Post Message"}
           </button>
@@ -498,15 +343,7 @@ export default function DiscussionForum({ eventId }) {
             <button
               type="button"
               onClick={handlePostAnnouncement}
-              style={{
-                padding: "10px 20px",
-                backgroundColor: "#f59e0b",
-                color: "white",
-                border: "none",
-                borderRadius: "4px",
-                cursor: "pointer",
-                fontWeight: "bold",
-              }}
+              style={{ padding: "10px 20px", backgroundColor: "#f59e0b", color: "white", border: "none", borderRadius: "4px", cursor: "pointer", fontWeight: "bold" }}
             >
               Post as Announcement
             </button>
@@ -514,7 +351,7 @@ export default function DiscussionForum({ eventId }) {
         </div>
       </form>
 
-      {}
+      {/* Messages list — only top-level messages rendered here, replies are nested inside renderMessage */}
       <div>
         {getTopLevelMessages().length === 0 ? (
           <p style={{ textAlign: "center", color: "#6b7280", padding: "20px" }}>

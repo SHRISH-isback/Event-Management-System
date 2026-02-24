@@ -13,6 +13,7 @@ export default function MerchandiseOrders() {
   const [rejectionReason, setRejectionReason] = useState("");
   const [showRejectModal, setShowRejectModal] = useState(false);
 
+  // Fetch the organizer's own profile to get their ID for order queries
   useEffect(() => {
     const fetchOrganizerProfile = async () => {
       try {
@@ -26,6 +27,7 @@ export default function MerchandiseOrders() {
     fetchOrganizerProfile();
   }, []);
 
+  // Fetch all merchandise orders for this organizer once their ID is known
   useEffect(() => {
     if (!organizerId) return;
 
@@ -43,6 +45,7 @@ export default function MerchandiseOrders() {
     fetchOrders();
   }, [organizerId]);
 
+  // Re-fetch orders to reflect latest approval/rejection changes
   const refreshOrders = async () => {
     try {
       const res = await api.get(`/registrations/pending-orders/${organizerId}`);
@@ -52,6 +55,7 @@ export default function MerchandiseOrders() {
     }
   };
 
+  // Approve a payment proof and confirm the merchandise order
   const handleApprove = async (orderId) => {
     if (!window.confirm("Are you sure you want to approve this payment?")) {
       return;
@@ -69,12 +73,14 @@ export default function MerchandiseOrders() {
     }
   };
 
+  // Open reject modal for the selected order
   const handleRejectClick = (order) => {
     setSelectedOrder(order);
     setRejectionReason("");
     setShowRejectModal(true);
   };
 
+  // Submit rejection with the provided reason
   const handleRejectSubmit = async () => {
     if (!rejectionReason.trim()) {
       alert("Please provide a rejection reason");
@@ -106,6 +112,7 @@ export default function MerchandiseOrders() {
     return <div className="container">Loading orders...</div>;
   }
 
+  // Partition orders by status for tab display
   const pendingOrders = orders.filter((o) => o.paymentStatus === "PENDING");
   const approvedOrders = orders.filter((o) => o.paymentStatus === "APPROVED");
   const rejectedOrders = orders.filter((o) => o.paymentStatus === "REJECTED");
@@ -125,6 +132,7 @@ export default function MerchandiseOrders() {
 
   const filteredOrders = getFilteredOrders();
 
+  // Return a styled status badge span for the given order
   const getStatusBadge = (order) => {
     let label, style;
     if (order.paymentStatus === "PENDING") {
@@ -163,6 +171,7 @@ export default function MerchandiseOrders() {
         Review and manage payment proofs for merchandise orders
       </p>
 
+      {/* Tab bar for filtering by payment status */}
       <div style={{ marginBottom: "30px", display: "flex", gap: "10px", flexWrap: "wrap" }}>
         <button
           onClick={() => setActiveTab("pending")}
@@ -204,7 +213,7 @@ export default function MerchandiseOrders() {
             fontWeight: "bold",
           }}
         >
-         Rejected ({rejectedOrders.length})
+          Rejected ({rejectedOrders.length})
         </button>
       </div>
 
@@ -219,13 +228,9 @@ export default function MerchandiseOrders() {
           {filteredOrders.map((order) => (
             <div
               key={order._id}
-              style={{
-                border: "1px solid #ddd",
-                borderRadius: "10px",
-                padding: "20px",
-                background: "white",
-              }}
+              style={{ border: "1px solid #ddd", borderRadius: "10px", padding: "20px", background: "white" }}
             >
+              {/* Order header: event name, ticket/customer info, and status badge */}
               <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "15px" }}>
                 <div>
                   <h3 style={{ margin: "0 0 10px 0" }}>{order.event.name}</h3>
@@ -246,24 +251,23 @@ export default function MerchandiseOrders() {
                 <div>{getStatusBadge(order)}</div>
               </div>
 
+              {/* Merchandise details */}
               <div style={{ marginBottom: "15px", paddingTop: "15px", borderTop: "1px solid #eee" }}>
                 <p style={{ margin: "5px 0" }}>
-                  <strong>Merchandise:</strong> {order.merchDetails.size} /{" "}
-                  {order.merchDetails.color}
+                  <strong>Merchandise:</strong> {order.merchDetails.size} / {order.merchDetails.color}
                 </p>
                 <p style={{ margin: "5px 0" }}>
                   <strong>Quantity:</strong> {order.merchDetails.quantity}
                 </p>
                 <p style={{ margin: "5px 0" }}>
-                  <strong>Total Amount:</strong> ₹
-                  {order.event.registrationFee * order.merchDetails.quantity}
+                  <strong>Total Amount:</strong> ₹{order.event.registrationFee * order.merchDetails.quantity}
                 </p>
                 <p style={{ margin: "5px 0", color: "#666", fontSize: "14px" }}>
-                  <strong>Order Date:</strong>{" "}
-                  {new Date(order.createdAt).toLocaleString()}
+                  <strong>Order Date:</strong> {new Date(order.createdAt).toLocaleString()}
                 </p>
               </div>
 
+              {/* Payment proof image or missing warning */}
               {order.paymentProof ? (
                 <div style={{ marginBottom: "15px" }}>
                   <button
@@ -286,6 +290,7 @@ export default function MerchandiseOrders() {
                 </div>
               )}
 
+              {/* Approve / Reject actions — only shown for pending orders */}
               {order.paymentStatus === "PENDING" && (
                 <div style={{ display: "flex", gap: "10px" }}>
                   <button
@@ -330,8 +335,7 @@ export default function MerchandiseOrders() {
 
               {order.paymentStatus === "APPROVED" && order.paymentApprovedAt && (
                 <div style={{ padding: "10px", background: "#d4edda", borderRadius: "5px", color: "#155724" }}>
-                  <strong>Approved on:</strong>{" "}
-                  {new Date(order.paymentApprovedAt).toLocaleString()}
+                  <strong>Approved on:</strong> {new Date(order.paymentApprovedAt).toLocaleString()}
                 </div>
               )}
             </div>
@@ -339,15 +343,13 @@ export default function MerchandiseOrders() {
         </div>
       )}
 
-      {}
+      {/* Payment proof image modal */}
       {showImageModal && selectedOrder && (
         <div className="modal-overlay" onClick={() => setShowImageModal(false)}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h2>Payment Proof</h2>
-              <button className="modal-close" onClick={() => setShowImageModal(false)}>
-                ×
-              </button>
+              <button className="modal-close" onClick={() => setShowImageModal(false)}>×</button>
             </div>
             <div className="modal-body">
               <img
@@ -360,15 +362,13 @@ export default function MerchandiseOrders() {
         </div>
       )}
 
-      {}
+      {/* Rejection reason modal */}
       {showRejectModal && selectedOrder && (
         <div className="modal-overlay" onClick={() => setShowRejectModal(false)}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h2>Reject Payment</h2>
-              <button className="modal-close" onClick={() => setShowRejectModal(false)}>
-                ×
-              </button>
+              <button className="modal-close" onClick={() => setShowRejectModal(false)}>×</button>
             </div>
             <div className="modal-body">
               <p style={{ marginBottom: "15px" }}>
@@ -380,22 +380,16 @@ export default function MerchandiseOrders() {
                 placeholder="Enter rejection reason..."
                 rows={4}
                 style={{
-                  width: "100%",
-                  padding: "10px",
-                  borderRadius: "5px",
-                  border: "1px solid #ddd",
-                  marginBottom: "15px",
+                  width: "100%", padding: "10px", borderRadius: "5px",
+                  border: "1px solid #ddd", marginBottom: "15px",
                 }}
               />
               <div style={{ display: "flex", gap: "10px", justifyContent: "flex-end" }}>
                 <button
                   onClick={() => setShowRejectModal(false)}
                   style={{
-                    padding: "10px 20px",
-                    borderRadius: "5px",
-                    border: "1px solid #ddd",
-                    background: "white",
-                    cursor: "pointer",
+                    padding: "10px 20px", borderRadius: "5px",
+                    border: "1px solid #ddd", background: "white", cursor: "pointer",
                   }}
                 >
                   Cancel
@@ -404,16 +398,10 @@ export default function MerchandiseOrders() {
                   onClick={handleRejectSubmit}
                   disabled={actionLoading || !rejectionReason.trim()}
                   style={{
-                    padding: "10px 20px",
-                    borderRadius: "5px",
-                    border: "none",
-                    background:
-                      actionLoading || !rejectionReason.trim() ? "#ccc" : "#dc3545",
+                    padding: "10px 20px", borderRadius: "5px", border: "none",
+                    background: actionLoading || !rejectionReason.trim() ? "#ccc" : "#dc3545",
                     color: "white",
-                    cursor:
-                      actionLoading || !rejectionReason.trim()
-                        ? "not-allowed"
-                        : "pointer",
+                    cursor: actionLoading || !rejectionReason.trim() ? "not-allowed" : "pointer",
                   }}
                 >
                   {actionLoading ? "Rejecting..." : "Reject Payment"}

@@ -201,11 +201,4 @@ const getOrganizerResetHistory = async (req, res) => {
   }
 };
 
-module.exports = {
-  requestPasswordReset,
-  getMyResetRequests,
-  getAllResetRequests,
-  approveResetRequest,
-  rejectResetRequest,
-  getOrganizerResetHistory,
-};
+module.exports = {requestPasswordReset,getMyResetRequests,getAllResetRequests,approveResetRequest,rejectResetRequest,getOrganizerResetHistory,};

@@ -62,10 +62,4 @@ const emitReactionUpdate = (eventId, messageId, reactions) => {
   }
 };
 
-module.exports = {
-  initializeSocket,
-  emitNewMessage,
-  emitMessageDeleted,
-  emitMessagePinned,
-  emitReactionUpdate,
-};
+module.exports = {initializeSocket,emitNewMessage,emitMessageDeleted,emitMessagePinned,emitReactionUpdate,};

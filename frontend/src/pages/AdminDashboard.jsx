@@ -12,7 +12,6 @@ export default function AdminDashboard() {
     description: "",
     contactEmail: "",
   });
-
   const [credentials, setCredentials] = useState(null);
   const [error, setError] = useState("");
   const [organizers, setOrganizers] = useState([]);
@@ -38,6 +37,7 @@ export default function AdminDashboard() {
     setForm({ ...form, [e.target.name]: e.target.value });
   };
 
+  // Creates a new organizer account and shows the generated credentials
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
@@ -46,13 +46,7 @@ export default function AdminDashboard() {
     try {
       const res = await api.post("/admin/organizers", form);
       setCredentials(res.data.credentials);
-      setForm({
-        email: "",
-        name: "",
-        category: "",
-        description: "",
-        contactEmail: "",
-      });
+      setForm({ email: "", name: "", category: "", description: "", contactEmail: "" });
       fetchOrganizers();
     } catch (err) {
       setError(err.response?.data?.message || "Failed to create organizer");
@@ -60,9 +54,7 @@ export default function AdminDashboard() {
   };
 
   const toggleOrganizerStatus = async (organizerId) => {
-    if (!window.confirm("Are you sure you want to change this organizer's status?")) {
-      return;
-    }
+    if (!window.confirm("Are you sure you want to change this organizer's status?")) return;
 
     try {
       await api.patch(`/admin/organizers/${organizerId}/toggle`);
@@ -72,24 +64,22 @@ export default function AdminDashboard() {
     }
   };
 
+  // Double-confirms deletion with a name-match prompt before permanently removing the organizer
   const deleteOrganizer = async (organizerId, organizerName) => {
     if (!window.confirm(
-      `⚠️ PERMANENT DELETION WARNING\n\n` +
+      `PERMANENT DELETION WARNING\n\n` +
       `You are about to permanently delete "${organizerName}".\n\n` +
       `This will also delete:\n` +
-      `  • All events created by this organizer\n` +
-      `  • All registrations & merch orders for those events\n` +
-      `  • All forum messages for those events\n` +
-      `  • All password reset requests from this organizer\n\n` +
+      `  - All events created by this organizer\n` +
+      `  - All registrations & merch orders for those events\n` +
+      `  - All forum messages for those events\n` +
+      `  - All password reset requests from this organizer\n\n` +
       `This action CANNOT be undone. Proceed?`
-    )) {
-      return;
-    }
+    )) return;
 
     const confirmation = window.prompt(
       `To confirm deletion, type the organizer name exactly: "${organizerName}"`
     );
-
     if (confirmation !== organizerName) {
       alert("Organizer name doesn't match. Deletion cancelled.");
       return;
@@ -99,7 +89,7 @@ export default function AdminDashboard() {
       const res = await api.delete(`/admin/organizers/${organizerId}`);
       const d = res.data.deleted;
       alert(
-        ` Organizer permanently deleted.\n\n` +
+        `Organizer permanently deleted.\n\n` +
         `Removed: ${d.events} event(s), ${d.registrations} registration(s), ${d.forumMessages} forum message(s).`
       );
       fetchOrganizers();
@@ -112,101 +102,49 @@ export default function AdminDashboard() {
     <div className="container">
       <h2>Admin Dashboard</h2>
 
-      {}
       <div style={{ marginBottom: "30px" }}>
         <button
           className="btn"
           onClick={() => navigate("/admin/password-resets")}
-          style={{
-            backgroundColor: "#f59e0b",
-            marginRight: "10px",
-          }}
+          style={{ backgroundColor: "#f59e0b", marginRight: "10px" }}
         >
           Manage Password Resets
         </button>
       </div>
 
       <h3>Create Organizer</h3>
-
       {error && <p className="error">{error}</p>}
 
       <form onSubmit={handleSubmit}>
-        <input
-          className="input"
-          name="name"
-          placeholder="Organizer Name"
-          value={form.name}
-          onChange={handleChange}
-          required
-        />
-
-        <input
-          className="input"
-          name="email"
-          placeholder="Organizer Email"
-          value={form.email}
-          onChange={handleChange}
-          required
-        />
-
-        <input
-          className="input"
-          name="contactEmail"
-          placeholder="Contact Email"
-          value={form.contactEmail}
-          onChange={handleChange}
-        />
-
-        <input
-          className="input"
-          name="category"
-          placeholder="Category (Technical / Cultural)"
-          value={form.category}
-          onChange={handleChange}
-        />
-
-        <textarea
-          className="input"
-          name="description"
-          placeholder="Description"
-          value={form.description}
-          onChange={handleChange}
-        />
-
-        <button className="btn" type="submit">
-          Create Organizer
-        </button>
+        <input className="input" name="name" placeholder="Organizer Name" value={form.name} onChange={handleChange} required />
+        <input className="input" name="email" placeholder="Organizer Email" value={form.email} onChange={handleChange} required />
+        <input className="input" name="contactEmail" placeholder="Contact Email" value={form.contactEmail} onChange={handleChange} />
+        <input className="input" name="category" placeholder="Category (Technical / Cultural)" value={form.category} onChange={handleChange} />
+        <textarea className="input" name="description" placeholder="Description" value={form.description} onChange={handleChange} />
+        <button className="btn" type="submit">Create Organizer</button>
       </form>
 
+      {/* Display auto-generated credentials after creation — shown once */}
       {credentials && (
         <div className="card" style={{ marginTop: "20px" }}>
           <h3>Organizer Credentials</h3>
           <p><b>Email:</b> {credentials.email}</p>
           <p><b>Password:</b> {credentials.password}</p>
-          <p style={{ color: "red" }}>
-            Save this password now. It will not be shown again.
-          </p>
+          <p style={{ color: "red" }}>Save this password now. It will not be shown again.</p>
         </div>
       )}
 
-      {}
+      {/* Organizer management table with activate/deactivate and delete controls */}
       <div style={{ marginTop: "40px" }}>
         <h3>Manage Organizers</h3>
-        
+
         {loading ? (
           <p>Loading organizers...</p>
         ) : organizers.length === 0 ? (
           <p>No organizers created yet.</p>
         ) : (
           <div style={{ overflowX: "auto" }}>
-            <table style={{ 
-              width: "100%", 
-              borderCollapse: "collapse",
-              backgroundColor: "white",
-              boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
-              borderRadius: "8px",
-              overflow: "hidden"
-            }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", backgroundColor: "white", boxShadow: "0 1px 3px rgba(0,0,0,0.1)", borderRadius: "8px", overflow: "hidden" }}>
               <thead>
                 <tr style={{ backgroundColor: "#f3f4f6" }}>
                   <th style={{ padding: "12px", textAlign: "left", borderBottom: "2px solid #e5e7eb" }}>Name</th>
@@ -223,14 +161,7 @@ export default function AdminDashboard() {
                     <td style={{ padding: "12px" }}>{org.user?.email || "N/A"}</td>
                     <td style={{ padding: "12px" }}>{org.category || "N/A"}</td>
                     <td style={{ padding: "12px" }}>
-                      <span style={{
-                        padding: "4px 12px",
-                        borderRadius: "12px",
-                        fontSize: "12px",
-                        fontWeight: "600",
-                        backgroundColor: org.user?.isActive ? "#dcfce7" : "#fee2e2",
-                        color: org.user?.isActive ? "#166534" : "#991b1b",
-                      }}>
+                      <span style={{ padding: "4px 12px", borderRadius: "12px", fontSize: "12px", fontWeight: "600", backgroundColor: org.user?.isActive ? "#dcfce7" : "#fee2e2", color: org.user?.isActive ? "#166534" : "#991b1b" }}>
                         {org.user?.isActive ? "Active" : "Inactive"}
                       </span>
                     </td>
@@ -238,25 +169,16 @@ export default function AdminDashboard() {
                       <button
                         className="btn"
                         onClick={() => toggleOrganizerStatus(org._id)}
-                        style={{
-                          padding: "6px 12px",
-                          fontSize: "13px",
-                          marginRight: "8px",
-                          backgroundColor: org.user?.isActive ? "#f59e0b" : "#10b981",
-                        }}
+                        style={{ padding: "6px 12px", fontSize: "13px", marginRight: "8px", backgroundColor: org.user?.isActive ? "#f59e0b" : "#10b981" }}
                       >
                         {org.user?.isActive ? "Deactivate" : "Activate"}
                       </button>
                       <button
                         className="btn"
                         onClick={() => deleteOrganizer(org._id, org.name)}
-                        style={{
-                          padding: "6px 12px",
-                          fontSize: "13px",
-                          backgroundColor: "#dc2626",
-                        }}
+                        style={{ padding: "6px 12px", fontSize: "13px", backgroundColor: "#dc2626" }}
                       >
-                         Delete
+                        Delete
                       </button>
                     </td>
                   </tr>

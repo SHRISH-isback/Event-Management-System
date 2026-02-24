@@ -25,25 +25,21 @@ export default function CreateEvent() {
     const [newSize, setNewSize] = useState("");
     const [newColor, setNewColor] = useState("");
     const [customFields, setCustomFields] = useState([]);
-    const [newField, setNewField] = useState({
-        label: "",
-        type: "text",
-        required: false,
-        options: [],
-    });
+    const [newField, setNewField] = useState({ label: "", type: "text", required: false, options: [] });
     const [newOption, setNewOption] = useState("");
-
     const [error, setError] = useState("");
 
     const handleChange = (e) => {
         setForm({ ...form, [e.target.name]: e.target.value });
     };
 
+    // Merch size/color helpers — each addition regenerates the full variant matrix
     const addSize = () => {
         if (newSize && !merchSizes.includes(newSize)) {
-            setMerchSizes([...merchSizes, newSize]);
+            const updated = [...merchSizes, newSize];
+            setMerchSizes(updated);
             setNewSize("");
-            regenerateVariants([...merchSizes, newSize], merchColors);
+            regenerateVariants(updated, merchColors);
         }
     };
 
@@ -55,9 +51,10 @@ export default function CreateEvent() {
 
     const addColor = () => {
         if (newColor && !merchColors.includes(newColor)) {
-            setMerchColors([...merchColors, newColor]);
+            const updated = [...merchColors, newColor];
+            setMerchColors(updated);
             setNewColor("");
-            regenerateVariants(merchSizes, [...merchColors, newColor]);
+            regenerateVariants(merchSizes, updated);
         }
     };
 
@@ -67,46 +64,35 @@ export default function CreateEvent() {
         regenerateVariants(merchSizes, updated);
     };
 
+    // Rebuilds the size x color variant grid, preserving existing stock values
     const regenerateVariants = (sizes, colors) => {
         const newVariants = [];
         sizes.forEach(size => {
             colors.forEach(color => {
                 const existing = merchVariants.find(v => v.size === size && v.color === color);
-                newVariants.push({
-                    size,
-                    color,
-                    stock: existing ? existing.stock : 0,
-                });
+                newVariants.push({ size, color, stock: existing ? existing.stock : 0 });
             });
         });
         setMerchVariants(newVariants);
     };
 
     const updateVariantStock = (size, color, stock) => {
-        setMerchVariants(merchVariants.map(v => 
-            v.size === size && v.color === color 
-                ? { ...v, stock: parseInt(stock) || 0 }
-                : v
+        setMerchVariants(merchVariants.map(v =>
+            v.size === size && v.color === color ? { ...v, stock: parseInt(stock) || 0 } : v
         ));
     };
 
+    // Custom form field helpers (NORMAL events only)
     const addCustomField = () => {
         if (!newField.label.trim()) {
             setError("Field label is required");
             return;
         }
-
         if ((newField.type === "dropdown" || newField.type === "checkbox") && newField.options.length === 0) {
             setError(`Please add at least one option for ${newField.type} field`);
             return;
         }
-
-        const fieldToAdd = {
-            ...newField,
-            order: customFields.length,
-        };
-
-        setCustomFields([...customFields, fieldToAdd]);
+        setCustomFields([...customFields, { ...newField, order: customFields.length }]);
         setNewField({ label: "", type: "text", required: false, options: [] });
         setError("");
     };
@@ -133,37 +119,28 @@ export default function CreateEvent() {
 
     const addOptionToNewField = () => {
         if (newOption.trim() && !newField.options.includes(newOption.trim())) {
-            setNewField({ 
-                ...newField, 
-                options: [...newField.options, newOption.trim()] 
-            });
+            setNewField({ ...newField, options: [...newField.options, newOption.trim()] });
             setNewOption("");
         }
     };
 
     const removeOptionFromNewField = (option) => {
-        setNewField({
-            ...newField,
-            options: newField.options.filter(opt => opt !== option)
-        });
+        setNewField({ ...newField, options: newField.options.filter(opt => opt !== option) });
     };
 
+    // Builds the final event payload and attaches type-specific data before submission
     const handleSubmit = async (e) => {
         e.preventDefault();
         setError("");
 
         try {
-            const eventData = {
-                ...form,
-                registrationLimit: Number(form.registrationLimit),
-            };
+            const eventData = { ...form, registrationLimit: Number(form.registrationLimit) };
 
             if (form.type === "MERCH") {
                 if (merchVariants.length === 0) {
                     setError("Please add at least one merchandise variant");
                     return;
                 }
-
                 eventData.merchVariants = merchVariants;
                 eventData.availableSizes = merchSizes;
                 eventData.availableColors = merchColors;
@@ -177,7 +154,6 @@ export default function CreateEvent() {
             await api.post("/events", eventData);
             navigate("/organizer", { replace: true });
             window.location.reload();
-
         } catch (err) {
             setError(err.response?.data?.message || "Failed to create event");
         }
@@ -186,132 +162,40 @@ export default function CreateEvent() {
     return (
         <div className="container">
             <h2>Create Event</h2>
-
             {error && <p className="error">{error}</p>}
 
             <form onSubmit={handleSubmit}>
-                <input
-                    className="input"
-                    name="name"
-                    placeholder="Event Name"
-                    value={form.name}
-                    onChange={handleChange}
-                    required
-                />
+                <input className="input" name="name" placeholder="Event Name" value={form.name} onChange={handleChange} required />
+                <textarea className="input" name="description" placeholder="Description" value={form.description} onChange={handleChange} required />
 
-                <textarea
-                    className="input"
-                    name="description"
-                    placeholder="Description"
-                    value={form.description}
-                    onChange={handleChange}
-                    required
-                />
-
-                <select
-                    className="input"
-                    name="type"
-                    value={form.type}
-                    onChange={handleChange}
-                >
+                <select className="input" name="type" value={form.type} onChange={handleChange}>
                     <option value="NORMAL">Normal Event</option>
                     <option value="MERCH">Merchandise Event</option>
                 </select>
 
-                <input
-                    className="input"
-                    type="date"
-                    name="startDate"
-                    value={form.startDate}
-                    onChange={handleChange}
-                    required
-                />
+                <input className="input" type="date" name="startDate" value={form.startDate} onChange={handleChange} required />
+                <input className="input" type="date" name="endDate" value={form.endDate} onChange={handleChange} required />
+                <input className="input" type="number" name="registrationLimit" placeholder="Registration Limit" value={form.registrationLimit} onChange={handleChange} />
+                <input className="input" type="number" name="registrationFee" placeholder="Registration Fee (Rs.) — enter 0 for free" value={form.registrationFee} onChange={handleChange} min="0" />
+                <input className="input" type="text" name="eligibility" placeholder="Eligibility (e.g. Open to all, 1st year only)" value={form.eligibility} onChange={handleChange} />
+                <input className="input" type="date" name="registrationDeadline" placeholder="Registration Deadline" value={form.registrationDeadline} onChange={handleChange} />
 
-                <input
-                    className="input"
-                    type="date"
-                    name="endDate"
-                    value={form.endDate}
-                    onChange={handleChange}
-                    required
-                />
-
-                <input
-                    className="input"
-                    type="number"
-                    name="registrationLimit"
-                    placeholder="Registration Limit"
-                    value={form.registrationLimit}
-                    onChange={handleChange}
-                />
-
-                <input
-                    className="input"
-                    type="number"
-                    name="registrationFee"
-                    placeholder="Registration Fee (₹) — enter 0 for free"
-                    value={form.registrationFee}
-                    onChange={handleChange}
-                    min="0"
-                />
-
-                <input
-                    className="input"
-                    type="text"
-                    name="eligibility"
-                    placeholder="Eligibility (e.g. Open to all, 1st year only)"
-                    value={form.eligibility}
-                    onChange={handleChange}
-                />
-
-                <input
-                    className="input"
-                    type="date"
-                    name="registrationDeadline"
-                    placeholder="Registration Deadline"
-                    value={form.registrationDeadline}
-                    onChange={handleChange}
-                />
-
-                {}
+                {/* Custom form builder — only available for NORMAL events */}
                 {form.type === "NORMAL" && (
-                    <div style={{ 
-                        marginTop: "20px", 
-                        padding: "20px", 
-                        backgroundColor: "#f0f9ff", 
-                        borderRadius: "8px",
-                        border: "1px solid #bae6fd"
-                    }}>
-                        <h3 style={{ marginTop: 0, marginBottom: "15px", color: "#0284c7" }}>
-                            Custom Registration Form Builder
-                        </h3>
+                    <div style={{ marginTop: "20px", padding: "20px", backgroundColor: "#f0f9ff", borderRadius: "8px", border: "1px solid #bae6fd" }}>
+                        <h3 style={{ marginTop: 0, marginBottom: "15px", color: "#0284c7" }}>Custom Registration Form Builder</h3>
                         <p style={{ color: "#64748b", fontSize: "14px", marginBottom: "15px" }}>
                             Add custom fields to collect additional information from participants
                         </p>
 
-                        <div style={{
-                            padding: "12px",
-                            backgroundColor: "#fef3c7",
-                            border: "1px solid #fbbf24",
-                            borderRadius: "6px",
-                            marginBottom: "15px",
-                            fontSize: "14px",
-                            color: "#92400e"
-                        }}>
-                             <b>Note:</b> Once the first participant registers, the form structure will be locked and cannot be modified.
+                        <div style={{ padding: "12px", backgroundColor: "#fef3c7", border: "1px solid #fbbf24", borderRadius: "6px", marginBottom: "15px", fontSize: "14px", color: "#92400e" }}>
+                            <b>Note:</b> Once the first participant registers, the form structure will be locked and cannot be modified.
                         </div>
 
-                        {}
-                        <div style={{ 
-                            padding: "15px", 
-                            backgroundColor: "white", 
-                            borderRadius: "6px",
-                            marginBottom: "15px"
-                        }}>
-                            <h4 style={{ marginTop: 0, marginBottom: "10px", fontSize: "16px" }}>
-                                Add New Field
-                            </h4>
-                            
+                        {/* Add new field form */}
+                        <div style={{ padding: "15px", backgroundColor: "white", borderRadius: "6px", marginBottom: "15px" }}>
+                            <h4 style={{ marginTop: 0, marginBottom: "10px", fontSize: "16px" }}>Add New Field</h4>
+
                             <input
                                 className="input"
                                 type="text"
@@ -324,10 +208,10 @@ export default function CreateEvent() {
                             <select
                                 className="input"
                                 value={newField.type}
-                                onChange={(e) => setNewField({ 
-                                    ...newField, 
+                                onChange={(e) => setNewField({
+                                    ...newField,
                                     type: e.target.value,
-                                    options: e.target.value === "text" || e.target.value === "file" ? [] : newField.options
+                                    options: e.target.value === "text" || e.target.value === "file" ? [] : newField.options,
                                 })}
                                 style={{ marginBottom: "10px" }}
                             >
@@ -346,12 +230,10 @@ export default function CreateEvent() {
                                 <span>Required Field</span>
                             </label>
 
-                            {}
+                            {/* Options editor for dropdown/checkbox field types */}
                             {(newField.type === "dropdown" || newField.type === "checkbox") && (
                                 <div style={{ marginTop: "10px" }}>
-                                    <label style={{ display: "block", marginBottom: "5px", fontWeight: "bold", fontSize: "14px" }}>
-                                        Options:
-                                    </label>
+                                    <label style={{ display: "block", marginBottom: "5px", fontWeight: "bold", fontSize: "14px" }}>Options:</label>
                                     <div style={{ display: "flex", gap: "10px", marginBottom: "10px" }}>
                                         <input
                                             className="input"
@@ -361,130 +243,51 @@ export default function CreateEvent() {
                                             placeholder="Add an option"
                                             style={{ flex: 1 }}
                                         />
-                                        <button 
-                                            type="button" 
-                                            className="btn" 
-                                            onClick={addOptionToNewField}
-                                            style={{ backgroundColor: "#0284c7" }}
-                                        >
-                                            Add
-                                        </button>
+                                        <button type="button" className="btn" onClick={addOptionToNewField} style={{ backgroundColor: "#0284c7" }}>Add</button>
                                     </div>
                                     <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
                                         {newField.options.map(option => (
-                                            <span key={option} style={{
-                                                padding: "6px 12px",
-                                                backgroundColor: "#e0f2fe",
-                                                borderRadius: "12px",
-                                                fontSize: "14px",
-                                                display: "flex",
-                                                alignItems: "center",
-                                                gap: "8px"
-                                            }}>
+                                            <span key={option} style={{ padding: "6px 12px", backgroundColor: "#e0f2fe", borderRadius: "12px", fontSize: "14px", display: "flex", alignItems: "center", gap: "8px" }}>
                                                 {option}
-                                                <button 
-                                                    type="button"
-                                                    onClick={() => removeOptionFromNewField(option)}
-                                                    style={{
-                                                        background: "none",
-                                                        border: "none",
-                                                        color: "#dc2626",
-                                                        cursor: "pointer",
-                                                        padding: "0",
-                                                        fontSize: "16px"
-                                                    }}
-                                                >
-                                                    ×
-                                                </button>
+                                                <button type="button" onClick={() => removeOptionFromNewField(option)} style={{ background: "none", border: "none", color: "#dc2626", cursor: "pointer", padding: "0", fontSize: "16px" }}>x</button>
                                             </span>
                                         ))}
                                     </div>
                                 </div>
                             )}
 
-                            <button 
-                                type="button" 
-                                className="btn" 
-                                onClick={addCustomField}
-                                style={{ backgroundColor: "#0284c7", marginTop: "10px" }}
-                            >
-                                ➕ Add Field
+                            <button type="button" className="btn" onClick={addCustomField} style={{ backgroundColor: "#0284c7", marginTop: "10px" }}>
+                                Add Field
                             </button>
                         </div>
 
-                        {}
+                        {/* List of added custom fields with reorder and delete controls */}
                         {customFields.length > 0 && (
                             <div>
-                                <h4 style={{ marginBottom: "10px", fontSize: "16px" }}>
-                                    Custom Fields ({customFields.length})
-                                </h4>
+                                <h4 style={{ marginBottom: "10px", fontSize: "16px" }}>Custom Fields ({customFields.length})</h4>
                                 {customFields.map((field, index) => (
-                                    <div key={index} style={{
-                                        padding: "15px",
-                                        backgroundColor: "white",
-                                        borderRadius: "6px",
-                                        marginBottom: "10px",
-                                        border: "1px solid #e0f2fe"
-                                    }}>
+                                    <div key={index} style={{ padding: "15px", backgroundColor: "white", borderRadius: "6px", marginBottom: "10px", border: "1px solid #e0f2fe" }}>
                                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "start" }}>
                                             <div style={{ flex: 1 }}>
                                                 <div style={{ fontWeight: "bold", marginBottom: "5px" }}>
-                                                    {field.label}
-                                                    {field.required && <span style={{ color: "#dc2626" }}> *</span>}
+                                                    {field.label}{field.required && <span style={{ color: "#dc2626" }}> *</span>}
                                                 </div>
-                                                <div style={{ fontSize: "14px", color: "#64748b" }}>
-                                                    Type: {field.type}
-                                                </div>
-                                                {field.options && field.options.length > 0 && (
+                                                <div style={{ fontSize: "14px", color: "#64748b" }}>Type: {field.type}</div>
+                                                {field.options?.length > 0 && (
                                                     <div style={{ fontSize: "14px", color: "#64748b", marginTop: "5px" }}>
                                                         Options: {field.options.join(", ")}
                                                     </div>
                                                 )}
                                             </div>
                                             <div style={{ display: "flex", gap: "5px" }}>
-                                                <button
-                                                    type="button"
-                                                    onClick={() => moveFieldUp(index)}
-                                                    disabled={index === 0}
-                                                    style={{
-                                                        padding: "5px 10px",
-                                                        backgroundColor: index === 0 ? "#e5e7eb" : "#0284c7",
-                                                        color: "white",
-                                                        border: "none",
-                                                        borderRadius: "4px",
-                                                        cursor: index === 0 ? "not-allowed" : "pointer"
-                                                    }}
-                                                >
-                                                    ↑
+                                                <button type="button" onClick={() => moveFieldUp(index)} disabled={index === 0} style={{ padding: "5px 10px", backgroundColor: index === 0 ? "#e5e7eb" : "#0284c7", color: "white", border: "none", borderRadius: "4px", cursor: index === 0 ? "not-allowed" : "pointer" }}>
+                                                    Up
                                                 </button>
-                                                <button
-                                                    type="button"
-                                                    onClick={() => moveFieldDown(index)}
-                                                    disabled={index === customFields.length - 1}
-                                                    style={{
-                                                        padding: "5px 10px",
-                                                        backgroundColor: index === customFields.length - 1 ? "#e5e7eb" : "#0284c7",
-                                                        color: "white",
-                                                        border: "none",
-                                                        borderRadius: "4px",
-                                                        cursor: index === customFields.length - 1 ? "not-allowed" : "pointer"
-                                                    }}
-                                                >
-                                                    ↓
+                                                <button type="button" onClick={() => moveFieldDown(index)} disabled={index === customFields.length - 1} style={{ padding: "5px 10px", backgroundColor: index === customFields.length - 1 ? "#e5e7eb" : "#0284c7", color: "white", border: "none", borderRadius: "4px", cursor: index === customFields.length - 1 ? "not-allowed" : "pointer" }}>
+                                                    Down
                                                 </button>
-                                                <button
-                                                    type="button"
-                                                    onClick={() => removeCustomField(index)}
-                                                    style={{
-                                                        padding: "5px 10px",
-                                                        backgroundColor: "#dc2626",
-                                                        color: "white",
-                                                        border: "none",
-                                                        borderRadius: "4px",
-                                                        cursor: "pointer"
-                                                    }}
-                                                >
-                                                    🗑️
+                                                <button type="button" onClick={() => removeCustomField(index)} style={{ padding: "5px 10px", backgroundColor: "#dc2626", color: "white", border: "none", borderRadius: "4px", cursor: "pointer" }}>
+                                                    Delete
                                                 </button>
                                             </div>
                                         </div>
@@ -495,196 +298,73 @@ export default function CreateEvent() {
                     </div>
                 )}
 
-                {}
+                {/* Merch configuration — sizes, colors, and per-variant stock */}
                 {form.type === "MERCH" && (
-                    <div style={{ 
-                        marginTop: "20px", 
-                        padding: "20px", 
-                        backgroundColor: "#f9fafb", 
-                        borderRadius: "8px",
-                        border: "1px solid #e5e7eb"
-                    }}>
-                        <h3 style={{ marginTop: 0, marginBottom: "15px", color: "#10b981" }}>
-                            Merchandise Details
-                        </h3>
+                    <div style={{ marginTop: "20px", padding: "20px", backgroundColor: "#f9fafb", borderRadius: "8px", border: "1px solid #e5e7eb" }}>
+                        <h3 style={{ marginTop: 0, marginBottom: "15px", color: "#10b981" }}>Merchandise Details</h3>
 
-                        {}
                         <div style={{ marginBottom: "20px" }}>
-                            <label style={{ display: "block", marginBottom: "5px", fontWeight: "bold" }}>
-                                Purchase Limit per Customer:
-                            </label>
-                            <input
-                                className="input"
-                                type="number"
-                                min="1"
-                                value={purchaseLimit}
-                                onChange={(e) => setPurchaseLimit(parseInt(e.target.value) || 1)}
-                                placeholder="Max items per purchase"
-                            />
+                            <label style={{ display: "block", marginBottom: "5px", fontWeight: "bold" }}>Purchase Limit per Customer:</label>
+                            <input className="input" type="number" min="1" value={purchaseLimit} onChange={(e) => setPurchaseLimit(parseInt(e.target.value) || 1)} placeholder="Max items per purchase" />
                         </div>
 
-                        {/* Sizes */}
                         <div style={{ marginBottom: "20px" }}>
-                            <label style={{ display: "block", marginBottom: "5px", fontWeight: "bold" }}>
-                                Available Sizes:
-                            </label>
+                            <label style={{ display: "block", marginBottom: "5px", fontWeight: "bold" }}>Available Sizes:</label>
                             <div style={{ display: "flex", gap: "10px", marginBottom: "10px" }}>
-                                <input
-                                    className="input"
-                                    type="text"
-                                    value={newSize}
-                                    onChange={(e) => setNewSize(e.target.value)}
-                                    placeholder="e.g., S, M, L, XL"
-                                    style={{ flex: 1 }}
-                                />
-                                <button 
-                                    type="button" 
-                                    className="btn" 
-                                    onClick={addSize}
-                                    style={{ backgroundColor: "#10b981" }}
-                                >
-                                    Add Size
-                                </button>
+                                <input className="input" type="text" value={newSize} onChange={(e) => setNewSize(e.target.value)} placeholder="e.g., S, M, L, XL" style={{ flex: 1 }} />
+                                <button type="button" className="btn" onClick={addSize} style={{ backgroundColor: "#10b981" }}>Add Size</button>
                             </div>
                             <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
                                 {merchSizes.map(size => (
-                                    <span key={size} style={{
-                                        padding: "6px 12px",
-                                        backgroundColor: "#e5e7eb",
-                                        borderRadius: "12px",
-                                        fontSize: "14px",
-                                        display: "flex",
-                                        alignItems: "center",
-                                        gap: "8px"
-                                    }}>
+                                    <span key={size} style={{ padding: "6px 12px", backgroundColor: "#e5e7eb", borderRadius: "12px", fontSize: "14px", display: "flex", alignItems: "center", gap: "8px" }}>
                                         {size}
-                                        <button 
-                                            type="button"
-                                            onClick={() => removeSize(size)}
-                                            style={{
-                                                background: "none",
-                                                border: "none",
-                                                color: "#dc2626",
-                                                cursor: "pointer",
-                                                padding: "0",
-                                                fontSize: "16px"
-                                            }}
-                                        >
-                                            ×
-                                        </button>
+                                        <button type="button" onClick={() => removeSize(size)} style={{ background: "none", border: "none", color: "#dc2626", cursor: "pointer", padding: "0", fontSize: "16px" }}>x</button>
                                     </span>
                                 ))}
                             </div>
                         </div>
 
-                        {}
                         <div style={{ marginBottom: "20px" }}>
-                            <label style={{ display: "block", marginBottom: "5px", fontWeight: "bold" }}>
-                                Available Colors:
-                            </label>
+                            <label style={{ display: "block", marginBottom: "5px", fontWeight: "bold" }}>Available Colors:</label>
                             <div style={{ display: "flex", gap: "10px", marginBottom: "10px" }}>
-                                <input
-                                    className="input"
-                                    type="text"
-                                    value={newColor}
-                                    onChange={(e) => setNewColor(e.target.value)}
-                                    placeholder="e.g., Black, White, Blue"
-                                    style={{ flex: 1 }}
-                                />
-                                <button 
-                                    type="button" 
-                                    className="btn" 
-                                    onClick={addColor}
-                                    style={{ backgroundColor: "#10b981" }}
-                                >
-                                    Add Color
-                                </button>
+                                <input className="input" type="text" value={newColor} onChange={(e) => setNewColor(e.target.value)} placeholder="e.g., Black, White, Blue" style={{ flex: 1 }} />
+                                <button type="button" className="btn" onClick={addColor} style={{ backgroundColor: "#10b981" }}>Add Color</button>
                             </div>
                             <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
                                 {merchColors.map(color => (
-                                    <span key={color} style={{
-                                        padding: "6px 12px",
-                                        backgroundColor: "#e5e7eb",
-                                        borderRadius: "12px",
-                                        fontSize: "14px",
-                                        display: "flex",
-                                        alignItems: "center",
-                                        gap: "8px"
-                                    }}>
+                                    <span key={color} style={{ padding: "6px 12px", backgroundColor: "#e5e7eb", borderRadius: "12px", fontSize: "14px", display: "flex", alignItems: "center", gap: "8px" }}>
                                         {color}
-                                        <button 
-                                            type="button"
-                                            onClick={() => removeColor(color)}
-                                            style={{
-                                                background: "none",
-                                                border: "none",
-                                                color: "#dc2626",
-                                                cursor: "pointer",
-                                                padding: "0",
-                                                fontSize: "16px"
-                                            }}
-                                        >
-                                            ×
-                                        </button>
+                                        <button type="button" onClick={() => removeColor(color)} style={{ background: "none", border: "none", color: "#dc2626", cursor: "pointer", padding: "0", fontSize: "16px" }}>x</button>
                                     </span>
                                 ))}
                             </div>
                         </div>
 
-                        {}
+                        {/* Stock table — auto-generated from the size x color matrix */}
                         {merchVariants.length > 0 && (
                             <div>
-                                <label style={{ display: "block", marginBottom: "10px", fontWeight: "bold" }}>
-                                    Stock for Each Variant:
-                                </label>
-                                <div style={{ 
-                                    overflowX: "auto",
-                                    border: "1px solid #e5e7eb",
-                                    borderRadius: "6px"
-                                }}>
-                                    <table style={{ 
-                                        width: "100%", 
-                                        borderCollapse: "collapse",
-                                        backgroundColor: "white"
-                                    }}>
+                                <label style={{ display: "block", marginBottom: "10px", fontWeight: "bold" }}>Stock for Each Variant:</label>
+                                <div style={{ overflowX: "auto", border: "1px solid #e5e7eb", borderRadius: "6px" }}>
+                                    <table style={{ width: "100%", borderCollapse: "collapse", backgroundColor: "white" }}>
                                         <thead>
                                             <tr style={{ backgroundColor: "#f3f4f6" }}>
-                                                <th style={{ padding: "10px", textAlign: "left", borderBottom: "1px solid #e5e7eb" }}>
-                                                    Size
-                                                </th>
-                                                <th style={{ padding: "10px", textAlign: "left", borderBottom: "1px solid #e5e7eb" }}>
-                                                    Color
-                                                </th>
-                                                <th style={{ padding: "10px", textAlign: "left", borderBottom: "1px solid #e5e7eb" }}>
-                                                    Stock
-                                                </th>
+                                                <th style={{ padding: "10px", textAlign: "left", borderBottom: "1px solid #e5e7eb" }}>Size</th>
+                                                <th style={{ padding: "10px", textAlign: "left", borderBottom: "1px solid #e5e7eb" }}>Color</th>
+                                                <th style={{ padding: "10px", textAlign: "left", borderBottom: "1px solid #e5e7eb" }}>Stock</th>
                                             </tr>
                                         </thead>
                                         <tbody>
                                             {merchVariants.map((variant, idx) => (
                                                 <tr key={idx}>
-                                                    <td style={{ padding: "10px", borderBottom: "1px solid #e5e7eb" }}>
-                                                        {variant.size}
-                                                    </td>
-                                                    <td style={{ padding: "10px", borderBottom: "1px solid #e5e7eb" }}>
-                                                        {variant.color}
-                                                    </td>
+                                                    <td style={{ padding: "10px", borderBottom: "1px solid #e5e7eb" }}>{variant.size}</td>
+                                                    <td style={{ padding: "10px", borderBottom: "1px solid #e5e7eb" }}>{variant.color}</td>
                                                     <td style={{ padding: "10px", borderBottom: "1px solid #e5e7eb" }}>
                                                         <input
                                                             type="number"
                                                             min="0"
                                                             value={variant.stock}
-                                                            onChange={(e) => updateVariantStock(
-                                                                variant.size, 
-                                                                variant.color, 
-                                                                e.target.value
-                                                            )}
-                                                            style={{
-                                                                width: "100px",
-                                                                padding: "6px",
-                                                                border: "1px solid #e5e7eb",
-                                                                borderRadius: "4px"
-                                                            }}
+                                                            onChange={(e) => updateVariantStock(variant.size, variant.color, e.target.value)}
+                                                            style={{ width: "100px", padding: "6px", border: "1px solid #e5e7eb", borderRadius: "4px" }}
                                                         />
                                                     </td>
                                                 </tr>
@@ -697,9 +377,7 @@ export default function CreateEvent() {
                     </div>
                 )}
 
-                <button className="btn" type="submit">
-                    Create Event
-                </button>
+                <button className="btn" type="submit">Create Event</button>
             </form>
         </div>
     );

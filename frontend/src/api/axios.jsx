@@ -22,6 +22,17 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     console.error("API Error:", error.response?.data || error.message);
+
+    // If the server rejects the token (expired / invalid), clear the session
+    // and force the user back to the login page
+    if (error.response?.status === 401) {
+      localStorage.removeItem("token");
+      localStorage.removeItem("role");
+      if (window.location.pathname !== "/") {
+        window.location.href = "/";
+      }
+    }
+
     return Promise.reject(error);
   }
 );

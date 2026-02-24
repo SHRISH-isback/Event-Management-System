@@ -5,13 +5,9 @@ const Participant = require("../models/Participant");
 const Organizer = require("../models/Organizer");
 const crypto = require("crypto");
 const { sendRegistrationEmail, sendPaymentApprovalEmail, sendPaymentRejectionEmail } = require("../utils/emailService");
+
 const { generateQRCode, createTicketData } = require("../utils/qrCodeService");
-const { 
-  generateICSFile, 
-  generateBatchICSFile,
-  generateGoogleCalendarURL,
-  generateOutlookCalendarURL 
-} = require("../utils/calendarService");
+const { generateICSFile, generateBatchICSFile,generateGoogleCalendarURL,generateOutlookCalendarURL } = require("../utils/calendarService");
 
 const registerForEvent = async (req, res) => {
   try {
@@ -90,8 +86,6 @@ const registerForEvent = async (req, res) => {
     const registrationData = { participant: participantId, event: eventId, ticketId };
 
     if (event.type === "MERCH") {
-      // Do NOT decrement stock yet — stock is only decremented upon organizer approval.
-      // Stock is validated above to ensure availability.
       registrationData.merchDetails = { size, color, quantity };
       registrationData.paymentStatus = "PENDING";
       registrationData.orderSuccessful = false;
@@ -101,7 +95,20 @@ const registerForEvent = async (req, res) => {
       registrationData.formResponses = formResponses;
     }
 
+    if (event.type === "NORMAL" && event.registrationFee > 0) {
+      registrationData.paymentStatus = "PENDING";
+    }
+
     const registration = await Registration.create(registrationData);
+    if (event.type === "NORMAL" && event.registrationFee > 0) {
+      return res.status(201).json({
+        message: "Registration submitted. Please upload your payment proof to complete booking.",
+        ticketId: registration.ticketId,
+        registrationId: registration._id,
+        paymentStatus: "PENDING",
+        requiresPaymentProof: true,
+      });
+    }
 
     if (event.type === "NORMAL") {
       let qrCodeDataUrl = null;
@@ -326,12 +333,18 @@ const resendConfirmationEmail = async (req, res) => {
     console.log('Event type:', registration.event.type);
     console.log('Has merch details:', !!registration.merchDetails);
     console.log('Payment status:', registration.paymentStatus);
-    if (registration.event.type === "MERCH" && registration.paymentStatus !== "APPROVED") {
+
+    // Block QR code for any registration (MERCH or paid NORMAL) where payment isn't approved
+    const requiresPaymentApproval =
+      registration.event.type === "MERCH" ||
+      (registration.event.type === "NORMAL" && registration.event.registrationFee > 0 && registration.paymentStatus && registration.paymentStatus !== "NOT_REQUIRED");
+
+    if (requiresPaymentApproval && registration.paymentStatus !== "APPROVED") {
       const statusMsg = {
         PENDING: registration.paymentProof
           ? "Your payment proof is awaiting organizer approval. QR code will be available once approved."
           : "Please upload your payment proof first. QR code will be available once payment is approved.",
-        REJECTED: "Your payment was rejected. QR code is not available. Please contact the organizer.",
+        REJECTED: "Your payment was rejected. QR code is not available. Please re-upload a valid payment proof.",
       };
       return res.status(403).json({
         message: statusMsg[registration.paymentStatus] || "QR code is not available for this order.",
@@ -527,8 +540,12 @@ const uploadPaymentProof = async (req, res) => {
     if (registration.participant.toString() !== req.user.id) {
       return res.status(403).json({ message: "Not authorized" });
     }
-    if (registration.event.type !== "MERCH") {
-      return res.status(400).json({ message: "Not a merchandise order" });
+    // Allow payment proof for MERCH and paid NORMAL events
+    const requiresPayment =
+      registration.event.type === "MERCH" ||
+      (registration.event.type === "NORMAL" && registration.event.registrationFee > 0);
+    if (!requiresPayment) {
+      return res.status(400).json({ message: "This registration does not require payment proof" });
     }
     if (!["PENDING", "REJECTED"].includes(registration.paymentStatus)) {
       return res.status(400).json({ 
@@ -538,7 +555,6 @@ const uploadPaymentProof = async (req, res) => {
 
     registration.paymentProof = paymentProof;
     if (registration.paymentStatus === "REJECTED") {
-      // Reset back to PENDING so organizer can re-review. No stock change needed.
       registration.paymentStatus = "PENDING";
       registration.paymentRejectionReason = undefined;
     }
@@ -591,6 +607,46 @@ const getPendingMerchOrders = async (req, res) => {
     res.status(500).json({ message: err.message });
   }
 };
+
+// Fetch all payment-pending registrations across both NORMAL (paid) and MERCH events
+// for the given organizer — used by the unified Payment Verification dashboard
+const getPendingPaymentOrders = async (req, res) => {
+  try {
+    const organizerId = req.params.organizerId;
+
+    if (req.user.organizerId && req.user.organizerId.toString() !== organizerId.toString()) {
+      return res.status(403).json({ message: "Not authorized" });
+    }
+
+    // Fetch all events for this organizer
+    const events = await Event.find({ organizer: organizerId });
+    const eventIds = events.map(e => e._id);
+
+    // Find registrations that have a non-trivial paymentStatus
+    const orders = await Registration.find({
+      event: { $in: eventIds },
+      status: "REGISTERED",
+      paymentStatus: { $in: ["PENDING", "APPROVED", "REJECTED"] }
+    })
+      .populate("participant", "email")
+      .populate("event", "name registrationFee type")
+      .sort({ createdAt: -1 });
+
+    const ordersWithDetails = await Promise.all(
+      orders.map(async (order) => {
+        const participant = await Participant.findOne({ user: order.participant._id });
+        return {
+          ...order.toObject(),
+          participantDetails: participant
+        };
+      })
+    );
+
+    res.json(ordersWithDetails);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
 const approvePayment = async (req, res) => {
   try {
     const { registrationId } = req.params;
@@ -625,20 +681,22 @@ const approvePayment = async (req, res) => {
     registration.paymentApprovedBy = req.user.id;
     registration.paymentApprovedAt = new Date();
 
-    // Decrement stock on approval
-    const variant = event.merchVariants.find(
-      v => v.size === registration.merchDetails.size &&
-           v.color === registration.merchDetails.color
-    );
-    if (variant && registration.merchDetails?.quantity) {
-      const availableStock = variant.stock - variant.sold;
-      if (availableStock < registration.merchDetails.quantity) {
-        return res.status(400).json({ 
-          message: `Cannot approve: only ${availableStock} items are now available in stock.` 
-        });
+    // Decrement stock on approval (MERCH only)
+    if (event.type === "MERCH" && registration.merchDetails) {
+      const variant = event.merchVariants.find(
+        v => v.size === registration.merchDetails.size &&
+             v.color === registration.merchDetails.color
+      );
+      if (variant && registration.merchDetails?.quantity) {
+        const availableStock = variant.stock - variant.sold;
+        if (availableStock < registration.merchDetails.quantity) {
+          return res.status(400).json({ 
+            message: `Cannot approve: only ${availableStock} items are now available in stock.` 
+          });
+        }
+        variant.sold += registration.merchDetails.quantity;
+        await event.save();
       }
-      variant.sold += registration.merchDetails.quantity;
-      await event.save();
     }
 
     await registration.save();
@@ -658,23 +716,44 @@ const approvePayment = async (req, res) => {
         user: registration.participant._id || registration.participant 
       });
 
-      await sendPaymentApprovalEmail(user.email, {
-        participantName: (participant?.firstName && participant?.lastName)
-          ? `${participant.firstName} ${participant.lastName}`
-          : participant?.firstName || user.email.split("@")[0],
-        eventName: event.name,
-        ticketId: registration.ticketId,
-        qrCodeDataUrl,
-        merchDetails: registration.merchDetails,
-        registrationFee: event.registrationFee,
-      });
+      const participantName = (participant?.firstName && participant?.lastName)
+        ? `${participant.firstName} ${participant.lastName}`
+        : participant?.firstName || user.email.split("@")[0];
+
+      if (event.type === "NORMAL") {
+        await sendRegistrationEmail(user.email, {
+          participantName,
+          eventName: event.name,
+          eventDate: event.startDate
+            ? new Date(event.startDate).toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" })
+            : "TBA",
+          eventTime: event.startDate
+            ? new Date(event.startDate).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })
+            : "TBA",
+          eventLocation: event.location || "TBA",
+          ticketId: registration.ticketId,
+          qrCodeDataUrl,
+          eventType: "NORMAL",
+        });
+      } else {
+        await sendPaymentApprovalEmail(user.email, {
+          participantName,
+          eventName: event.name,
+          ticketId: registration.ticketId,
+          qrCodeDataUrl,
+          merchDetails: registration.merchDetails,
+          registrationFee: event.registrationFee,
+        });
+      }
       console.log('Payment approval email sent');
     } catch (emailError) {
       console.error('Failed to send approval email:', emailError.message);
     }
 
     res.json({ 
-      message: "Payment approved successfully. Order is now confirmed.",
+      message: event.type === "NORMAL"
+        ? "Payment approved. Registration is now confirmed."
+        : "Payment approved successfully. Order is now confirmed.",
       registration: {
         _id: registration._id,
         paymentStatus: registration.paymentStatus,
@@ -716,8 +795,6 @@ const rejectPayment = async (req, res) => {
       });
     }
 
-    // No stock to restore — stock is only decremented on approval, not on submission.
-
     registration.paymentStatus = "REJECTED";
     registration.paymentRejectionReason = reason;
     registration.orderSuccessful = false;
@@ -757,11 +834,7 @@ const rejectPayment = async (req, res) => {
   }
 };
 
-module.exports = { 
-  registerForEvent, 
-  getMyRegistrations, 
-  getEventRegistrations,
-  checkRegistration,
+module.exports = { registerForEvent, getMyRegistrations, getEventRegistrations,checkRegistration,
   getRegistrationCount,
   verifyTicket,
   resendConfirmationEmail,
@@ -770,6 +843,7 @@ module.exports = {
   getCalendarLinks,
   uploadPaymentProof,
   getPendingMerchOrders,
+  getPendingPaymentOrders,
   approvePayment,
   rejectPayment,
 };

@@ -8,6 +8,8 @@ export default function Events() {
   const [trendingEvents, setTrendingEvents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showFilters, setShowFilters] = useState(false);
+
+  // Filter and sort state
   const [search, setSearch] = useState("");
   const [type, setType] = useState("");
   const [tags, setTags] = useState("");
@@ -21,6 +23,7 @@ export default function Events() {
 
   const navigate = useNavigate();
 
+  // Fetch top trending events (by registration count)
   const fetchTrendingEvents = async () => {
     try {
       const res = await api.get("/events/trending");
@@ -30,10 +33,10 @@ export default function Events() {
     }
   };
 
+  // Fetch events with current filter/sort params applied as query string
   const fetchEvents = useCallback(async () => {
     try {
       setLoading(true);
-      
       const params = new URLSearchParams();
       if (search) params.append("search", search);
       if (type) params.append("type", type);
@@ -45,9 +48,7 @@ export default function Events() {
       if (sortBy) params.append("sortBy", sortBy);
       if (sortOrder) params.append("sortOrder", sortOrder);
       if (followedOnly) params.append("followedOnly", followedOnly);
-      
       const res = await api.get(`/events?${params.toString()}`);
-      console.log("EVENTS RESPONSE:", res.data);
       setEvents(res.data);
     } catch (err) {
       console.error("EVENT FETCH ERROR:", err);
@@ -60,10 +61,12 @@ export default function Events() {
     fetchTrendingEvents();
   }, []);
 
+  // Re-fetch events whenever any filter/sort value changes
   useEffect(() => {
     fetchEvents();
   }, [fetchEvents]);
 
+  // Reset all filters and sort to defaults
   const handleClearFilters = () => {
     setSearch("");
     setType("");
@@ -83,26 +86,25 @@ export default function Events() {
     <div className="container">
       <h2>Browse Events</h2>
 
-      {}
+      {/* Trending events section */}
       {trendingEvents.length > 0 && (
         <div style={{ marginBottom: "30px" }}>
           <h3 style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "15px" }}>
-            <span style={{ fontSize: "24px" }}></span>
             Trending Now
-            <span style={{ 
-              fontSize: "12px", 
-              backgroundColor: "#ef4444", 
-              color: "white", 
-              padding: "2px 8px", 
+            <span style={{
+              fontSize: "12px",
+              backgroundColor: "#ef4444",
+              color: "white",
+              padding: "2px 8px",
               borderRadius: "12px",
               fontWeight: "600"
             }}>
               HOT
             </span>
           </h3>
-          <div style={{ 
-            display: "grid", 
-            gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", 
+          <div style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
             gap: "15px",
             marginBottom: "20px"
           }}>
@@ -127,6 +129,7 @@ export default function Events() {
                   e.currentTarget.style.boxShadow = "none";
                 }}
               >
+                {/* Registration count badge */}
                 <div style={{ position: "absolute", top: "10px", right: "10px" }}>
                   <span style={{
                     backgroundColor: "#dc2626",
@@ -136,15 +139,15 @@ export default function Events() {
                     fontSize: "11px",
                     fontWeight: "700",
                   }}>
-                     {event.trendingScore} registrations
+                    {event.trendingScore} registrations
                   </span>
                 </div>
                 <h4 style={{ marginBottom: "8px", color: "#92400e", paddingRight: "80px" }}>
                   {event.name}
                 </h4>
-                <p style={{ 
-                  fontSize: "13px", 
-                  color: "#78350f", 
+                <p style={{
+                  fontSize: "13px",
+                  color: "#78350f",
                   marginBottom: "10px",
                   display: "-webkit-box",
                   WebkitLineClamp: 2,
@@ -154,7 +157,7 @@ export default function Events() {
                   {event.description}
                 </p>
                 <p style={{ fontSize: "12px", color: "#92400e", marginBottom: "5px" }}>
-                   {new Date(event.startDate).toLocaleDateString()}
+                  {new Date(event.startDate).toLocaleDateString()}
                 </p>
                 {event.registrationFee > 0 && (
                   <p style={{ fontSize: "13px", fontWeight: "600", color: "#166534" }}>
@@ -167,7 +170,7 @@ export default function Events() {
         </div>
       )}
 
-      {}
+      {/* Search input */}
       <div style={{ marginBottom: "20px" }}>
         <input
           type="text"
@@ -184,8 +187,7 @@ export default function Events() {
         />
       </div>
 
-      {}
-      {}
+      {/* Filter toggle and followed-clubs-only toggle */}
       <div style={{ marginBottom: "20px", display: "flex", gap: "10px", flexWrap: "wrap" }}>
         <button
           className="btn"
@@ -193,7 +195,7 @@ export default function Events() {
         >
           {showFilters ? "Hide Filters" : "Show Filters"}
         </button>
-        
+
         <button
           className="btn"
           onClick={() => setFollowedOnly(!followedOnly)}
@@ -206,7 +208,7 @@ export default function Events() {
         >
           {followedOnly ? "✓" : ""} Followed Clubs Only
         </button>
-        
+
         {hasActiveFilters && (
           <button
             className="btn"
@@ -218,7 +220,7 @@ export default function Events() {
         )}
       </div>
 
-      {}
+      {/* Collapsible advanced filter panel */}
       {showFilters && (
         <div
           className="card"
@@ -229,9 +231,8 @@ export default function Events() {
           }}
         >
           <h3 style={{ marginTop: 0 }}>Filters</h3>
-          
+
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "15px" }}>
-            {}
             <div>
               <label style={{ display: "block", marginBottom: "5px", fontWeight: "bold" }}>
                 Event Type
@@ -239,12 +240,7 @@ export default function Events() {
               <select
                 value={type}
                 onChange={(e) => setType(e.target.value)}
-                style={{
-                  width: "100%",
-                  padding: "8px",
-                  border: "1px solid #ddd",
-                  borderRadius: "4px",
-                }}
+                style={{ width: "100%", padding: "8px", border: "1px solid #ddd", borderRadius: "4px" }}
               >
                 <option value="">All Types</option>
                 <option value="NORMAL">Normal Events</option>
@@ -252,7 +248,6 @@ export default function Events() {
               </select>
             </div>
 
-            {}
             <div>
               <label style={{ display: "block", marginBottom: "5px", fontWeight: "bold" }}>
                 Tags (comma-separated)
@@ -262,16 +257,10 @@ export default function Events() {
                 placeholder="e.g., workshop, tech, sports"
                 value={tags}
                 onChange={(e) => setTags(e.target.value)}
-                style={{
-                  width: "100%",
-                  padding: "8px",
-                  border: "1px solid #ddd",
-                  borderRadius: "4px",
-                }}
+                style={{ width: "100%", padding: "8px", border: "1px solid #ddd", borderRadius: "4px" }}
               />
             </div>
 
-            {}
             <div>
               <label style={{ display: "block", marginBottom: "5px", fontWeight: "bold" }}>
                 Min Fee (₹)
@@ -282,16 +271,10 @@ export default function Events() {
                 value={minFee}
                 onChange={(e) => setMinFee(e.target.value)}
                 min="0"
-                style={{
-                  width: "100%",
-                  padding: "8px",
-                  border: "1px solid #ddd",
-                  borderRadius: "4px",
-                }}
+                style={{ width: "100%", padding: "8px", border: "1px solid #ddd", borderRadius: "4px" }}
               />
             </div>
 
-            {}
             <div>
               <label style={{ display: "block", marginBottom: "5px", fontWeight: "bold" }}>
                 Max Fee (₹)
@@ -302,16 +285,10 @@ export default function Events() {
                 value={maxFee}
                 onChange={(e) => setMaxFee(e.target.value)}
                 min="0"
-                style={{
-                  width: "100%",
-                  padding: "8px",
-                  border: "1px solid #ddd",
-                  borderRadius: "4px",
-                }}
+                style={{ width: "100%", padding: "8px", border: "1px solid #ddd", borderRadius: "4px" }}
               />
             </div>
 
-            {}
             <div>
               <label style={{ display: "block", marginBottom: "5px", fontWeight: "bold" }}>
                 Start Date From
@@ -320,16 +297,10 @@ export default function Events() {
                 type="date"
                 value={startDateFrom}
                 onChange={(e) => setStartDateFrom(e.target.value)}
-                style={{
-                  width: "100%",
-                  padding: "8px",
-                  border: "1px solid #ddd",
-                  borderRadius: "4px",
-                }}
+                style={{ width: "100%", padding: "8px", border: "1px solid #ddd", borderRadius: "4px" }}
               />
             </div>
 
-            {}
             <div>
               <label style={{ display: "block", marginBottom: "5px", fontWeight: "bold" }}>
                 Start Date To
@@ -338,16 +309,10 @@ export default function Events() {
                 type="date"
                 value={startDateTo}
                 onChange={(e) => setStartDateTo(e.target.value)}
-                style={{
-                  width: "100%",
-                  padding: "8px",
-                  border: "1px solid #ddd",
-                  borderRadius: "4px",
-                }}
+                style={{ width: "100%", padding: "8px", border: "1px solid #ddd", borderRadius: "4px" }}
               />
             </div>
 
-            {}
             <div>
               <label style={{ display: "block", marginBottom: "5px", fontWeight: "bold" }}>
                 Sort By
@@ -355,12 +320,7 @@ export default function Events() {
               <select
                 value={sortBy}
                 onChange={(e) => setSortBy(e.target.value)}
-                style={{
-                  width: "100%",
-                  padding: "8px",
-                  border: "1px solid #ddd",
-                  borderRadius: "4px",
-                }}
+                style={{ width: "100%", padding: "8px", border: "1px solid #ddd", borderRadius: "4px" }}
               >
                 <option value="startDate">Start Date</option>
                 <option value="registrationFee">Fee</option>
@@ -369,7 +329,6 @@ export default function Events() {
               </select>
             </div>
 
-            {}
             <div>
               <label style={{ display: "block", marginBottom: "5px", fontWeight: "bold" }}>
                 Sort Order
@@ -377,19 +336,13 @@ export default function Events() {
               <select
                 value={sortOrder}
                 onChange={(e) => setSortOrder(e.target.value)}
-                style={{
-                  width: "100%",
-                  padding: "8px",
-                  border: "1px solid #ddd",
-                  borderRadius: "4px",
-                }}
+                style={{ width: "100%", padding: "8px", border: "1px solid #ddd", borderRadius: "4px" }}
               >
                 <option value="asc">Ascending</option>
                 <option value="desc">Descending</option>
               </select>
             </div>
 
-            {}
             <div>
               <label style={{ display: "block", marginBottom: "5px", fontWeight: "bold" }}>
                 Followed Clubs Only
@@ -398,18 +351,14 @@ export default function Events() {
                 type="checkbox"
                 checked={followedOnly}
                 onChange={(e) => setFollowedOnly(e.target.checked)}
-                style={{
-                  width: "20px",
-                  height: "20px",
-                  cursor: "pointer",
-                }}
+                style={{ width: "20px", height: "20px", cursor: "pointer" }}
               />
             </div>
           </div>
         </div>
       )}
 
-      {}
+      {/* Result count */}
       <div style={{ marginBottom: "20px", color: "#666" }}>
         {loading ? (
           <p>Loading events...</p>
@@ -421,22 +370,20 @@ export default function Events() {
         )}
       </div>
 
-      {}
       {!loading && events.length === 0 && (
         <div className="card">
           <p>No events found. Try adjusting your filters.</p>
         </div>
       )}
 
+      {/* Event list */}
       {events.map((event) => (
         <div className="card" key={event._id}>
           <h3>{event.name}</h3>
           <p>{event.description}</p>
-          
-          <p>
-            <b>Type:</b> {event.type}
-          </p>
-          
+
+          <p><b>Type:</b> {event.type}</p>
+
           {event.tags && event.tags.length > 0 && (
             <p>
               <b>Tags:</b>{" "}
@@ -458,7 +405,7 @@ export default function Events() {
               ))}
             </p>
           )}
-          
+
           {event.startDate && event.endDate && (
             <p>
               <b>Dates:</b>{" "}
@@ -466,27 +413,18 @@ export default function Events() {
               {new Date(event.endDate).toLocaleDateString()}
             </p>
           )}
-          
+
           {event.registrationFee > 0 ? (
-            <p>
-              <b>Fee:</b> ₹{event.registrationFee}
-            </p>
+            <p><b>Fee:</b> ₹{event.registrationFee}</p>
           ) : (
-            <p>
-              <b>Fee:</b> Free
-            </p>
+            <p><b>Fee:</b> Free</p>
           )}
-          
+
           {event.organizer && (
-            <p>
-              <b>Organizer:</b> {event.organizer.name}
-            </p>
+            <p><b>Organizer:</b> {event.organizer.name}</p>
           )}
-          
-          <button
-            className="btn"
-            onClick={() => navigate(`/events/${event._id}`)}
-          >
+
+          <button className="btn" onClick={() => navigate(`/events/${event._id}`)}>
             View Details
           </button>
         </div>
@@ -494,7 +432,7 @@ export default function Events() {
 
       <h2 style={{ marginTop: "40px" }}>Trending Events</h2>
 
-      {}
+      {/* Trending events result count */}
       <div style={{ marginBottom: "20px" }}>
         {loading ? (
           <p>Loading trending events...</p>
@@ -505,22 +443,20 @@ export default function Events() {
         )}
       </div>
 
-      {}
       {!loading && trendingEvents.length === 0 && (
         <div className="card">
           <p>No trending events found.</p>
         </div>
       )}
 
+      {/* Trending event list */}
       {trendingEvents.map((event) => (
         <div className="card" key={event._id}>
           <h3>{event.name}</h3>
           <p>{event.description}</p>
-          
-          <p>
-            <b>Type:</b> {event.type}
-          </p>
-          
+
+          <p><b>Type:</b> {event.type}</p>
+
           {event.tags && event.tags.length > 0 && (
             <p>
               <b>Tags:</b>{" "}
@@ -542,7 +478,7 @@ export default function Events() {
               ))}
             </p>
           )}
-          
+
           {event.startDate && event.endDate && (
             <p>
               <b>Dates:</b>{" "}
@@ -550,27 +486,18 @@ export default function Events() {
               {new Date(event.endDate).toLocaleDateString()}
             </p>
           )}
-          
+
           {event.registrationFee > 0 ? (
-            <p>
-              <b>Fee:</b> ₹{event.registrationFee}
-            </p>
+            <p><b>Fee:</b> ₹{event.registrationFee}</p>
           ) : (
-            <p>
-              <b>Fee:</b> Free
-            </p>
+            <p><b>Fee:</b> Free</p>
           )}
-          
+
           {event.organizer && (
-            <p>
-              <b>Organizer:</b> {event.organizer.name}
-            </p>
+            <p><b>Organizer:</b> {event.organizer.name}</p>
           )}
-          
-          <button
-            className="btn"
-            onClick={() => navigate(`/events/${event._id}`)}
-          >
+
+          <button className="btn" onClick={() => navigate(`/events/${event._id}`)}>
             View Details
           </button>
         </div>

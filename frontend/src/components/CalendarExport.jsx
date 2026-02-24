@@ -6,6 +6,7 @@ export default function CalendarExport({ registrationId, eventName, onClose }) {
   const [reminderMinutes, setReminderMinutes] = useState(30);
   const [showReminderOptions, setShowReminderOptions] = useState(false);
 
+  // Downloads a .ics file for the event with the selected reminder
   const handleDownloadICS = async () => {
     try {
       setLoading(true);
@@ -13,48 +14,26 @@ export default function CalendarExport({ registrationId, eventName, onClose }) {
         `/registrations/calendar/export/${registrationId}?reminderMinutes=${reminderMinutes}`,
         { responseType: "blob" }
       );
-      
-      if (response.data.type === "application/json") {
-        const text = await response.data.text();
-        const errorData = JSON.parse(text);
-        throw new Error(errorData.message || "Failed to download calendar file");
-      }
-      
+
       const blob = new Blob([response.data], { type: "text/calendar" });
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;
-      link.download = `${eventName.replace(/[^a-z0-9]/gi, '_')}.ics`;
+      link.download = `${eventName.replace(/[^a-z0-9]/gi, "_")}.ics`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
-      
+
       alert("Calendar file downloaded successfully!");
     } catch (err) {
-      let errorMessage = "Failed to download calendar file";
-      
-      if (err.response?.data) {
-        if (err.response.data instanceof Blob && err.response.data.type === "application/json") {
-          try {
-            const text = await err.response.data.text();
-            const errorData = JSON.parse(text);
-            errorMessage = errorData.message || errorMessage;
-          } catch (parseError) {
-          }
-        } else if (typeof err.response.data === 'object') {
-          errorMessage = err.response.data.message || errorMessage;
-        }
-      } else if (err.message) {
-        errorMessage = err.message;
-      }
-      
-      alert(errorMessage);
+      alert(err.response?.data?.message || err.message || "Failed to download calendar file");
     } finally {
       setLoading(false);
     }
   };
 
+  // Opens Google Calendar with event pre-filled using a server-generated link
   const handleGoogleCalendar = async () => {
     try {
       setLoading(true);
@@ -71,6 +50,7 @@ export default function CalendarExport({ registrationId, eventName, onClose }) {
     }
   };
 
+  // Opens Outlook Calendar with event pre-filled using a server-generated link
   const handleOutlookCalendar = async () => {
     try {
       setLoading(true);
@@ -101,76 +81,44 @@ export default function CalendarExport({ registrationId, eventName, onClose }) {
           Export <strong>{eventName}</strong> to your calendar application
         </p>
 
-        {}
+        {/* Reminder selector — toggleable */}
         <div style={{ marginBottom: "20px", padding: "15px", backgroundColor: "#f8f9fa", borderRadius: "8px" }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "10px" }}>
-            <label style={{ fontWeight: "600", fontSize: "14px" }}>
-              Set Reminder
-            </label>
-            <button 
+            <label style={{ fontWeight: "600", fontSize: "14px" }}>Set Reminder</label>
+            <button
               onClick={() => setShowReminderOptions(!showReminderOptions)}
-              style={{ 
-                background: "none", 
-                border: "1px solid #ddd", 
-                borderRadius: "4px", 
-                padding: "4px 8px",
-                cursor: "pointer",
-                fontSize: "12px"
-              }}
+              style={{ background: "none", border: "1px solid #ddd", borderRadius: "4px", padding: "4px 8px", cursor: "pointer", fontSize: "12px" }}
             >
               {showReminderOptions ? "Hide" : "Customize"}
             </button>
           </div>
-          
-          {showReminderOptions && (
-            <div>
-              <select 
-                value={reminderMinutes} 
-                onChange={(e) => setReminderMinutes(e.target.value)}
-                style={{ 
-                  width: "100%", 
-                  padding: "8px", 
-                  borderRadius: "4px", 
-                  border: "1px solid #ddd",
-                  fontSize: "14px"
-                }}
-              >
-                <option value="15">15 minutes before</option>
-                <option value="30">30 minutes before</option>
-                <option value="60">1 hour before</option>
-                <option value="120">2 hours before</option>
-                <option value="1440">1 day before</option>
-                <option value="2880">2 days before</option>
-              </select>
-            </div>
-          )}
-          
-          {!showReminderOptions && (
+
+          {showReminderOptions ? (
+            <select
+              value={reminderMinutes}
+              onChange={(e) => setReminderMinutes(e.target.value)}
+              style={{ width: "100%", padding: "8px", borderRadius: "4px", border: "1px solid #ddd", fontSize: "14px" }}
+            >
+              <option value="15">15 minutes before</option>
+              <option value="30">30 minutes before</option>
+              <option value="60">1 hour before</option>
+              <option value="120">2 hours before</option>
+              <option value="1440">1 day before</option>
+              <option value="2880">2 days before</option>
+            </select>
+          ) : (
             <p style={{ margin: 0, fontSize: "13px", color: "#666" }}>
               Reminder set for {reminderMinutes} minutes before event
             </p>
           )}
         </div>
 
-        {}
+        {/* Export action buttons */}
         <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
           <button
             onClick={handleDownloadICS}
             disabled={loading}
-            style={{
-              padding: "12px",
-              backgroundColor: "#007bff",
-              color: "white",
-              border: "none",
-              borderRadius: "8px",
-              cursor: loading ? "not-allowed" : "pointer",
-              fontWeight: "600",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: "8px",
-              opacity: loading ? 0.6 : 1
-            }}
+            style={{ padding: "12px", backgroundColor: "#007bff", color: "white", border: "none", borderRadius: "8px", cursor: loading ? "not-allowed" : "pointer", fontWeight: "600", display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", opacity: loading ? 0.6 : 1 }}
           >
              Download .ics File (Universal)
           </button>
@@ -178,20 +126,7 @@ export default function CalendarExport({ registrationId, eventName, onClose }) {
           <button
             onClick={handleGoogleCalendar}
             disabled={loading}
-            style={{
-              padding: "12px",
-              backgroundColor: "#4285f4",
-              color: "white",
-              border: "none",
-              borderRadius: "8px",
-              cursor: loading ? "not-allowed" : "pointer",
-              fontWeight: "600",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: "8px",
-              opacity: loading ? 0.6 : 1
-            }}
+            style={{ padding: "12px", backgroundColor: "#4285f4", color: "white", border: "none", borderRadius: "8px", cursor: loading ? "not-allowed" : "pointer", fontWeight: "600", display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", opacity: loading ? 0.6 : 1 }}
           >
              Add to Google Calendar
           </button>
@@ -199,20 +134,7 @@ export default function CalendarExport({ registrationId, eventName, onClose }) {
           <button
             onClick={handleOutlookCalendar}
             disabled={loading}
-            style={{
-              padding: "12px",
-              backgroundColor: "#0078d4",
-              color: "white",
-              border: "none",
-              borderRadius: "8px",
-              cursor: loading ? "not-allowed" : "pointer",
-              fontWeight: "600",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: "8px",
-              opacity: loading ? 0.6 : 1
-            }}
+            style={{ padding: "12px", backgroundColor: "#0078d4", color: "white", border: "none", borderRadius: "8px", cursor: loading ? "not-allowed" : "pointer", fontWeight: "600", display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", opacity: loading ? 0.6 : 1 }}
           >
              Add to Outlook Calendar
           </button>

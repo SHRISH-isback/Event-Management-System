@@ -14,6 +14,7 @@ export default function Clubs() {
     fetchData();
   }, []);
 
+  // Fetches all organizers and the current participant's profile in parallel
   const fetchData = async () => {
     try {
       setLoading(true);
@@ -37,24 +38,17 @@ export default function Clubs() {
     );
   };
 
+  // Toggles follow/unfollow by updating the participant's followedOrganizers list
   const toggleFollow = async (organizerId) => {
     try {
       setFollowLoading({ ...followLoading, [organizerId]: true });
 
       const following = isFollowing(organizerId);
-      let updatedFollowed;
+      const updatedFollowed = following
+        ? profile.followedOrganizers.filter((org) => (org._id || org) !== organizerId)
+        : [...profile.followedOrganizers, organizerId];
 
-      if (following) {
-        updatedFollowed = profile.followedOrganizers.filter(
-          (org) => (org._id || org) !== organizerId
-        );
-      } else {
-        updatedFollowed = [...profile.followedOrganizers, organizerId];
-      }
-
-      await api.put("/participants/profile", {
-        followedOrganizers: updatedFollowed,
-      });
+      await api.put("/participants/profile", { followedOrganizers: updatedFollowed });
 
       const profileRes = await api.get("/participants/profile");
       setProfile(profileRes.data);

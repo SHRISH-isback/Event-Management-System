@@ -39,8 +39,9 @@ export default function Register() {
       setError("Password must be at least 6 characters");
       return;
     }
-    if (participantType === "IIIT" && !email.endsWith("@iiit.ac.in") && !email.endsWith("@research.iiit.ac.in")) {
-      setError("IIIT participants must use @iiit.ac.in or @research.iiit.ac.in email");
+    const iiitEmailRegex = /@(?:[a-zA-Z0-9-]+\.)?iiit\.ac\.in$/;
+    if (participantType === "IIIT" && !iiitEmailRegex.test(email)) {
+      setError("IIIT participants must use an @iiit.ac.in or @<subdomain>.iiit.ac.in email (e.g. @iiit.ac.in, @research.iiit.ac.in, @student.iiit.ac.in)");
       return;
     }
 
@@ -163,7 +164,7 @@ export default function Register() {
           borderRadius: "5px",
           border: "1px solid #bfdbfe"
         }}>
-          ℹ️ Use your IIIT email (@iiit.ac.in or @research.iiit.ac.in)
+          Use your IIIT email (@iiit.ac.in, @student.iiit.ac.in, @research.iiit.ac.in, or any @&lt;subdomain&gt;.iiit.ac.in)
         </p>
       )}
 

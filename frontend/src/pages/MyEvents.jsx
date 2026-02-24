@@ -77,14 +77,19 @@ export default function MyEvents() {
   );
 
   const handleViewQRCode = async (registration) => {
-    if (registration.event.type === "MERCH" && registration.paymentStatus !== "APPROVED") {
+    // Block QR for merch OR paid normal events where payment isn't approved
+    const needsApproval =
+      registration.event.type === "MERCH" ||
+      (registration.event.type === "NORMAL" && registration.event.registrationFee > 0 && registration.paymentStatus && registration.paymentStatus !== "NOT_REQUIRED");
+
+    if (needsApproval && registration.paymentStatus !== "APPROVED") {
       const msgs = {
         PENDING: registration.paymentProof
           ? "Your payment is awaiting organizer approval. QR code will be available once approved."
           : "Please upload your payment proof first. QR code will be available after payment approval.",
         REJECTED: "Your payment was rejected. Please re-upload a valid payment proof.",
       };
-      alert(msgs[registration.paymentStatus] || "QR code not available for this order.");
+      alert(msgs[registration.paymentStatus] || "QR code not available for this registration.");
       return;
     }
 
@@ -391,7 +396,8 @@ export default function MyEvents() {
           )}
 
           {}
-          {reg.event.type === "MERCH" && reg.paymentStatus && (
+          {/* Payment status banner — shown for MERCH and paid NORMAL events */}
+          {reg.paymentStatus && reg.paymentStatus !== "NOT_REQUIRED" && (
             <div
               style={{
                 padding: "15px",
@@ -431,7 +437,9 @@ export default function MyEvents() {
               </p>
               {reg.paymentStatus === "PENDING" && (
                 <p style={{ margin: "5px 0 0 0", fontSize: "14px" }}>
-                  ⏳ Payment proof uploaded. Awaiting organizer approval.
+                  {reg.paymentProof
+                    ? "⏳ Payment proof uploaded. Awaiting organizer approval."
+                    : "📤 Please upload your payment proof to complete your booking."}
                 </p>
               )}
               {reg.paymentStatus === "REJECTED" && reg.paymentRejectionReason && (
@@ -446,7 +454,7 @@ export default function MyEvents() {
               )}
               {reg.paymentStatus === "APPROVED" && (
                 <p style={{ margin: "5px 0 0 0", fontSize: "14px" }}>
-                  ✅ Your order has been confirmed! Use the QR code button below.
+                  ✅ {reg.event.type === "MERCH" ? "Your order has been confirmed!" : "Your registration is confirmed!"} Use the QR code button below.
                 </p>
               )}
             </div>
@@ -455,8 +463,11 @@ export default function MyEvents() {
           {}
           {reg.status === "REGISTERED" && (
             <div style={{ display: "flex", gap: "10px", marginTop: "15px", flexWrap: "wrap" }}>
-              {/* QR Code button — only for normal events OR approved merch orders */}
-              {(reg.event.type === "NORMAL" || reg.paymentStatus === "APPROVED") && (
+              {/* QR Code button — free normal events, approved paid normal events, or approved merch orders */}
+              {(
+                (reg.event.type === "NORMAL" && (!reg.paymentStatus || reg.paymentStatus === "NOT_REQUIRED" || reg.paymentStatus === "APPROVED")) ||
+                (reg.event.type === "MERCH" && reg.paymentStatus === "APPROVED")
+              ) && (
                 <button
                   onClick={() => handleViewQRCode(reg)}
                   disabled={resendLoading === reg._id}
@@ -487,8 +498,8 @@ export default function MyEvents() {
                 </button>
               )}
 
-              {/* Re-upload payment proof — after rejection */}
-              {reg.event.type === "MERCH" && reg.paymentStatus === "REJECTED" && (
+              {/* Re-upload payment proof — after rejection (MERCH or paid NORMAL) */}
+              {(reg.event.type === "MERCH" || (reg.event.type === "NORMAL" && reg.event.registrationFee > 0)) && reg.paymentStatus === "REJECTED" && (
                 <button
                   onClick={() => handleUploadPaymentProof(reg)}
                   style={{
@@ -512,8 +523,8 @@ export default function MyEvents() {
                 </button>
               )}
 
-              {/* Upload proof for PENDING orders with no proof yet */}
-              {reg.event.type === "MERCH" && reg.paymentStatus === "PENDING" && !reg.paymentProof && (
+              {/* Upload proof for PENDING registrations with no proof yet (MERCH or paid NORMAL) */}
+              {(reg.event.type === "MERCH" || (reg.event.type === "NORMAL" && reg.event.registrationFee > 0)) && reg.paymentStatus === "PENDING" && !reg.paymentProof && (
                 <button
                   onClick={() => handleUploadPaymentProof(reg)}
                   style={{
@@ -537,8 +548,9 @@ export default function MyEvents() {
                 </button>
               )}
 
-              {/* Add to Calendar — only for normal events with upcoming dates */}
-              {reg.event.type === "NORMAL" && new Date(reg.event.startDate) >= new Date() && (
+              {/* Add to Calendar — only for normal events with upcoming dates and confirmed tickets */}
+              {reg.event.type === "NORMAL" && new Date(reg.event.startDate) >= new Date() &&
+               (!reg.paymentStatus || reg.paymentStatus === "NOT_REQUIRED" || reg.paymentStatus === "APPROVED") && (
                 <button
                   onClick={() => handleAddToCalendar(reg)}
                   style={{

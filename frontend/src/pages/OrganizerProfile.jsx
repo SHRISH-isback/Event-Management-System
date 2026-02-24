@@ -19,7 +19,6 @@ export default function OrganizerProfile() {
     discordWebhook: "",
   });
 
-
   useEffect(() => {
     fetchProfile();
   }, []);
@@ -95,7 +94,6 @@ export default function OrganizerProfile() {
       {error && <p className="error">{error}</p>}
       {success && <p style={{ color: "green", marginBottom: "15px" }}>{success}</p>}
 
-      {}
       <div className="card">
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "15px" }}>
           <h3>Organization Details</h3>
@@ -189,7 +187,6 @@ export default function OrganizerProfile() {
         )}
       </div>
 
-      {}
       <div className="card">
         <h3>Discord Integration</h3>
         <p style={{ color: "#666", fontSize: "14px", marginBottom: "15px" }}>
@@ -233,7 +230,6 @@ export default function OrganizerProfile() {
         )}
       </div>
 
-      {}
       <div className="card">
         <h3>Profile Statistics</h3>
         <div style={{ 
@@ -280,7 +276,6 @@ export default function OrganizerProfile() {
         </div>
       </div>
 
-      {}
       <PasswordResetRequest />
     </div>
   );

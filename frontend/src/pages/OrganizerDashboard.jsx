@@ -12,6 +12,7 @@ export default function OrganizerDashboard() {
   }, []);
 
   const hasMerchEvents = events.some((e) => e.type === "MERCH");
+  const hasPaidEvents = events.some((e) => e.registrationFee > 0);
   const publishEvent = async (eventId) => {
     try {
       await api.patch(`/events/${eventId}/publish`);
@@ -35,15 +36,26 @@ export default function OrganizerDashboard() {
         >
           + Create New Event
         </button>
-        {hasMerchEvents && (
-          <button
-            className="btn"
-            onClick={() => navigate("/organizer/merchandise-orders")}
-            style={{ backgroundColor: "#f59e0b", color: "#fff", border: "none" }}
-          >
-            Merchandise Orders
-          </button>
-        )}
+        <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
+          {hasPaidEvents && (
+            <button
+              className="btn"
+              onClick={() => navigate("/organizer/payment-verification")}
+              style={{ backgroundColor: "#4f46e5", color: "#fff", border: "none" }}
+            >
+              Payment Verification
+            </button>
+          )}
+          {hasMerchEvents && (
+            <button
+              className="btn"
+              onClick={() => navigate("/organizer/merchandise-orders")}
+              style={{ backgroundColor: "#f59e0b", color: "#fff", border: "none" }}
+            >
+              Merchandise Orders
+            </button>
+          )}
+        </div>
       </div>
       <h2>My Events</h2>
 
@@ -97,15 +109,7 @@ export default function OrganizerDashboard() {
                   Attendance Tracking
                 </button>
               )}
-              {event.type === "MERCH" && (
-                <button
-                  className="btn"
-                  onClick={() => navigate("/organizer/merchandise-orders")}
-                  style={{ backgroundColor: "#f59e0b", color: "#fff", border: "none" }}
-                >
-                  Merch Orders
-                </button>
-              )}
+
             </>
           )}
         </div>

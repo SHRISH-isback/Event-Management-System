@@ -715,12 +715,5 @@ const sendPaymentProofSubmittedEmail = async (to, emailData) => {
   }
 };
 
-module.exports = {
-  sendRegistrationEmail,
-  sendCancellationEmail,
-  sendMerchRegistrationEmail,
-  sendOrderPlacedEmail,
-  sendPaymentProofSubmittedEmail,
-  sendPaymentApprovalEmail,
-  sendPaymentRejectionEmail,
-};
+module.exports = {sendRegistrationEmail,sendCancellationEmail,sendMerchRegistrationEmail,sendOrderPlacedEmail,sendPaymentProofSubmittedEmail,
+  sendPaymentApprovalEmail,sendPaymentRejectionEmail,};

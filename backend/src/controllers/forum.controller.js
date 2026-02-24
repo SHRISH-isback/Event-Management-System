@@ -371,12 +371,4 @@ const removeReaction = async (req, res) => {
   }
 };
 
-module.exports = {
-  getEventMessages,
-  postMessage,
-  postAnnouncement,
-  deleteMessage,
-  togglePinMessage,
-  addReaction,
-  removeReaction,
-};
+module.exports = {getEventMessages,postMessage,postAnnouncement,deleteMessage,togglePinMessage,addReaction,removeReaction,};

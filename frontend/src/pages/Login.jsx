@@ -9,25 +9,25 @@ export default function Login() {
   const [error, setError] = useState("");
   const navigate = useNavigate();
 
-const handleLogin = async () => {
-  try {
-    const res = await api.post("/auth/login", { email, password });
+  // Submit credentials and redirect based on the user's role
+  const handleLogin = async () => {
+    try {
+      const res = await api.post("/auth/login", { email, password });
 
-    localStorage.setItem("token", res.data.token);
-    localStorage.setItem("role", res.data.role);
+      localStorage.setItem("token", res.data.token);
+      localStorage.setItem("role", res.data.role);
 
-    if (res.data.role === "ADMIN") {
-      navigate("/admin");
-    } else if (res.data.role === "ORGANIZER") {
-      navigate("/organizer");
-    } else {
-      navigate("/events");
+      if (res.data.role === "ADMIN") {
+        navigate("/admin");
+      } else if (res.data.role === "ORGANIZER") {
+        navigate("/organizer");
+      } else {
+        navigate("/events");
+      }
+    } catch {
+      setError("Invalid email or password");
     }
-  } catch {
-    setError("Invalid email or password");
-  }
-};
-
+  };
 
   return (
     <div className="container">
@@ -54,6 +54,7 @@ const handleLogin = async () => {
         Login
       </button>
 
+      {/* Link to registration for new users */}
       <p style={{ marginTop: "20px" }}>
         Don't have an account?{" "}
         <span

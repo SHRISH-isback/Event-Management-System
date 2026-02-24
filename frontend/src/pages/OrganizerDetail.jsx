@@ -122,7 +122,7 @@ export default function OrganizerDetail() {
                   </p>
 
                   <p style={{ color: "#888", fontSize: "14px" }}>
-                    📅 {new Date(event.startDate).toLocaleDateString()} -{" "}
+                     {new Date(event.startDate).toLocaleDateString()} -{" "}
                     {new Date(event.endDate).toLocaleDateString()}
                   </p>
                 </div>
@@ -181,7 +181,7 @@ export default function OrganizerDetail() {
 
         {organizer.contactEmail && (
           <p style={{ fontSize: "14px", opacity: "0.9", margin: "10px 0 0 0" }}>
-            📧 Contact: {organizer.contactEmail}
+             Contact: {organizer.contactEmail}
           </p>
         )}
 

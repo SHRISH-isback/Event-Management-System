@@ -14,6 +14,7 @@ const {
   getCalendarLinks,
   uploadPaymentProof,
   getPendingMerchOrders,
+  getPendingPaymentOrders,
   approvePayment,
   rejectPayment,
 } = require("../controllers/registration.controller");
@@ -99,6 +100,13 @@ router.get(
   requireAuth,
   requireRole("ORGANIZER"),
   getPendingMerchOrders
+);
+
+router.get(
+  "/pending-payments/:organizerId",
+  requireAuth,
+  requireRole("ORGANIZER"),
+  getPendingPaymentOrders
 );
 
 router.post(

@@ -3,12 +3,14 @@ import { useParams, useNavigate } from "react-router-dom";
 import api from "../api/axios";
 import CalendarExport from "../components/CalendarExport";
 import DiscussionForum from "../components/DiscussionForum";
+import PaymentProofUpload from "../components/PaymentProofUpload";
 import "../App.css";
 
 export default function EventDetails() {
     const { eventId } = useParams();
     const navigate = useNavigate();
 
+    // Core event and registration state
     const [event, setEvent] = useState(null);
     const [registrationCount, setRegistrationCount] = useState(0);
     const [isRegistered, setIsRegistered] = useState(false);
@@ -22,6 +24,7 @@ export default function EventDetails() {
     const [loading, setLoading] = useState(true);
     const role = localStorage.getItem("role");
 
+    // Merchandise order state
     const [selectedSize, setSelectedSize] = useState("");
     const [selectedColor, setSelectedColor] = useState("");
     const [quantity, setQuantity] = useState(1);
@@ -32,11 +35,16 @@ export default function EventDetails() {
     const [showMerchOrderConfirm, setShowMerchOrderConfirm] = useState(false);
     const [merchOrderDetails, setMerchOrderDetails] = useState(null);
 
+    // Custom registration form state
     const [showCustomFormModal, setShowCustomFormModal] = useState(false);
     const [formResponses, setFormResponses] = useState({});
     const [formErrors, setFormErrors] = useState({});
     const [showCalendarExport, setShowCalendarExport] = useState(false);
 
+    // Payment proof upload modal state (for paid normal events)
+    const [showPaymentUploadModal, setShowPaymentUploadModal] = useState(false);
+
+    // Fetch event details and check participant registration status on mount
     useEffect(() => {
         const fetchEvent = async () => {
             try {
@@ -65,6 +73,7 @@ export default function EventDetails() {
         fetchEvent();
     }, [eventId, role]);
 
+    // Handle normal event registration; opens custom form modal if custom fields exist
     const handleRegister = async () => {
         setError("");
         setMessage("");
@@ -77,6 +86,7 @@ export default function EventDetails() {
         try {
             const requestData = {};
             if (event.customFields && event.customFields.length > 0) {
+                // Validate required custom fields before submitting
                 const errors = {};
                 for (const field of event.customFields) {
                     if (field.required && (!formResponses[field.label] || formResponses[field.label] === "")) {
@@ -98,6 +108,13 @@ export default function EventDetails() {
             setTicketId(res.data.ticketId);
             setShowCustomFormModal(false);
 
+            // Paid normal event — requires payment proof upload
+            if (res.data.requiresPaymentProof) {
+                setShowPaymentUploadModal(true);
+                return;
+            }
+
+            // Show QR code modal on successful free registration
             if (res.data.qrCode) {
                 setQrCodeData(res.data.qrCode);
                 setShowQRModal(true);
@@ -109,6 +126,7 @@ export default function EventDetails() {
         }
     };
 
+    // Handle merchandise order submission with payment proof upload
     const handleMerchSubmit = async () => {
         setError("");
         setPaymentProofError("");
@@ -136,7 +154,7 @@ export default function EventDetails() {
                     paymentProof: paymentProofFile,
                 });
             } catch (proofErr) {
-                // Order was created but proof upload failed — tell user to go to My Events to upload
+                // Order was created but proof upload failed — direct user to My Events to re-upload
                 setIsRegistered(true);
                 setRegistrationCount(prev => prev + 1);
                 setRegistrationId(newRegistrationId);
@@ -166,6 +184,7 @@ export default function EventDetails() {
         }
     };
 
+    // Reset all purchase modal state on cancel
     const resetPurchaseModal = () => {
         setShowPurchaseModal(false);
         setSelectedSize("");
@@ -177,12 +196,14 @@ export default function EventDetails() {
         setError("");
     };
 
+    // Calculate available stock for the currently selected size/color variant
     const getAvailableStock = () => {
         if (!event || event.type !== "MERCH" || !selectedSize || !selectedColor) return 0;
         const variant = event.merchVariants?.find(v => v.size === selectedSize && v.color === selectedColor);
         return variant ? variant.stock - variant.sold : 0;
     };
 
+    // Validate and read payment proof image as base64
     const handlePaymentProofChange = (e) => {
         const file = e.target.files[0];
         if (!file) return;
@@ -203,6 +224,7 @@ export default function EventDetails() {
         reader.readAsDataURL(file);
     };
 
+    // Update a single custom form field response and clear its error
     const handleFormFieldChange = (fieldLabel, value) => {
         setFormResponses(prev => ({ ...prev, [fieldLabel]: value }));
         if (formErrors[fieldLabel]) {
@@ -210,6 +232,7 @@ export default function EventDetails() {
         }
     };
 
+    // Toggle a checkbox option in a multi-select custom form field
     const handleCheckboxChange = (fieldLabel, option, checked) => {
         setFormResponses(prev => {
             const current = Array.isArray(prev[fieldLabel]) ? prev[fieldLabel] : [];
@@ -220,6 +243,7 @@ export default function EventDetails() {
         });
     };
 
+    // Registration eligibility helpers
     const isDeadlinePassed = () => !event?.registrationDeadline ? false : new Date() > new Date(event.registrationDeadline);
     const isEventFull = () => !event?.registrationLimit ? false : registrationCount >= event.registrationLimit;
     const canOrder = () => role === "PARTICIPANT" && !isRegistered && !isDeadlinePassed() && !isEventFull();
@@ -237,6 +261,7 @@ export default function EventDetails() {
         <div className="container">
             <h2>{event.name}</h2>
 
+            {/* Event type badge */}
             <span style={{
                 display: "inline-block",
                 padding: "4px 12px",
@@ -252,6 +277,7 @@ export default function EventDetails() {
 
             <p style={{ fontSize: "16px", lineHeight: "1.6", marginBottom: "20px" }}>{event.description}</p>
 
+            {/* Event metadata grid */}
             <div style={{
                 display: "grid",
                 gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))",
@@ -325,6 +351,7 @@ export default function EventDetails() {
                 )}
             </div>
 
+            {/* Merchandise stock table */}
             {event.type === "MERCH" && event.merchVariants && (
                 <div style={{
                     padding: "20px",
@@ -362,6 +389,7 @@ export default function EventDetails() {
                 </div>
             )}
 
+            {/* Merchandise purchase modal */}
             {showPurchaseModal && (
                 <div style={{
                     position: "fixed", top: 0, left: 0, right: 0, bottom: 0,
@@ -400,6 +428,7 @@ export default function EventDetails() {
                             </select>
                         </div>
 
+                        {/* Show real-time stock availability for the selected variant */}
                         {selectedSize && selectedColor && (
                             <div style={{
                                 padding: "10px 14px",
@@ -471,6 +500,7 @@ export default function EventDetails() {
                 </div>
             )}
 
+            {/* Custom registration form modal */}
             {showCustomFormModal && event.customFields && event.customFields.length > 0 && (
                 <div style={{
                     position: "fixed", top: 0, left: 0, right: 0, bottom: 0,
@@ -488,6 +518,7 @@ export default function EventDetails() {
                             </div>
                         )}
 
+                        {/* Render each custom field in order */}
                         {event.customFields.sort((a, b) => a.order - b.order).map((field, index) => (
                             <div key={index} style={{ marginBottom: "20px" }}>
                                 <label style={{ display: "block", marginBottom: "8px", fontWeight: "bold", color: "#1f2937" }}>
@@ -525,6 +556,7 @@ export default function EventDetails() {
                 </div>
             )}
 
+            {/* Merchandise order confirmation modal */}
             {showMerchOrderConfirm && merchOrderDetails && (
                 <div style={{
                     position: "fixed", top: 0, left: 0, right: 0, bottom: 0,
@@ -574,6 +606,7 @@ export default function EventDetails() {
                 </div>
             )}
 
+            {/* QR code modal shown after successful free event registration */}
             {showQRModal && qrCodeData && (
                 <div style={{
                     position: "fixed", top: 0, left: 0, right: 0, bottom: 0,
@@ -616,6 +649,37 @@ export default function EventDetails() {
                 </div>
             )}
 
+            {/* Payment status banner for paid normal events */}
+            {role === "PARTICIPANT" && event.type === "NORMAL" && isRegistered && paymentStatus && paymentStatus !== "NOT_REQUIRED" && (
+                <div style={{
+                    padding: "14px 16px",
+                    backgroundColor: paymentStatus === "APPROVED" ? "#d1fae5" : paymentStatus === "REJECTED" ? "#fee2e2" : "#fef3c7",
+                    border: `1px solid ${paymentStatus === "APPROVED" ? "#6ee7b7" : paymentStatus === "REJECTED" ? "#fca5a5" : "#fcd34d"}`,
+                    borderRadius: "8px",
+                    marginBottom: "15px",
+                }}>
+                    <p style={{ margin: 0, fontWeight: "bold", color: paymentStatus === "APPROVED" ? "#065f46" : paymentStatus === "REJECTED" ? "#991b1b" : "#92400e" }}>
+                        Payment Status: {paymentStatus === "PENDING" ? "PENDING APPROVAL" : paymentStatus}
+                    </p>
+                    {paymentStatus === "PENDING" && (
+                        <p style={{ margin: "4px 0 0 0", fontSize: "13px", color: "#92400e" }}>
+                            Your payment proof is under review. Your ticket will be issued once approved.
+                        </p>
+                    )}
+                    {paymentStatus === "REJECTED" && (
+                        <p style={{ margin: "4px 0 0 0", fontSize: "13px", color: "#991b1b" }}>
+                            Payment was rejected. Please re-upload a valid payment proof.
+                        </p>
+                    )}
+                    {paymentStatus === "APPROVED" && (
+                        <p style={{ margin: "4px 0 0 0", fontSize: "13px", color: "#065f46" }}>
+                            Payment approved! Your ticket is confirmed. Check My Events for your QR code.
+                        </p>
+                    )}
+                </div>
+            )}
+
+            {/* Success / error feedback */}
             {message && (
                 <div style={{ padding: "12px", backgroundColor: "#d1fae5", border: "1px solid #10b981", borderRadius: "6px", marginBottom: "15px", color: "#065f46" }}>
                     {message}
@@ -627,6 +691,7 @@ export default function EventDetails() {
                 </div>
             )}
 
+            {/* Action buttons — context-sensitive based on event type, role, and registration state */}
             <div style={{ display: "flex", gap: "10px", marginTop: "20px", flexWrap: "wrap" }}>
                 {role === "PARTICIPANT" && event.type === "MERCH" && !isRegistered && canOrder() && (
                     <button className="btn" onClick={() => setShowPurchaseModal(true)} style={{ flex: "1 1 auto", backgroundColor: "#10b981" }}>
@@ -664,11 +729,42 @@ export default function EventDetails() {
                         {isDeadlinePassed() ? "Registration Closed" : isEventFull() ? "Event Full" : "Register Now"}
                     </button>
                 )}
-                {role === "PARTICIPANT" && event.type === "NORMAL" && isRegistered && (
+                {role === "PARTICIPANT" && event.type === "NORMAL" && isRegistered && paymentStatus === "PENDING" && (
+                    <>
+                        <button className="btn" disabled style={{ flex: "1 1 auto", opacity: 0.7, cursor: "not-allowed", backgroundColor: "#f59e0b" }}>
+                            Awaiting Payment Approval
+                        </button>
+                        {!paymentStatus || true ? (
+                            <button
+                                className="btn"
+                                onClick={() => setShowPaymentUploadModal(true)}
+                                style={{ flex: "1 1 auto", backgroundColor: "#2563eb" }}
+                            >
+                                Upload Payment Proof
+                            </button>
+                        ) : null}
+                    </>
+                )}
+                {role === "PARTICIPANT" && event.type === "NORMAL" && isRegistered && paymentStatus === "REJECTED" && (
+                    <>
+                        <button className="btn" disabled style={{ flex: "1 1 auto", opacity: 0.7, cursor: "not-allowed", backgroundColor: "#dc2626" }}>
+                            Payment Rejected
+                        </button>
+                        <button
+                            className="btn"
+                            onClick={() => setShowPaymentUploadModal(true)}
+                            style={{ flex: "1 1 auto", backgroundColor: "#dc2626" }}
+                        >
+                            Re-upload Payment Proof
+                        </button>
+                    </>
+                )}
+                {role === "PARTICIPANT" && event.type === "NORMAL" && isRegistered && (!paymentStatus || paymentStatus === "NOT_REQUIRED" || paymentStatus === "APPROVED") && (
                     <>
                         <button className="btn" disabled style={{ flex: "1 1 auto", opacity: 0.7, cursor: "not-allowed", backgroundColor: "#6b7280" }}>
-                            Already Registered
+                            {paymentStatus === "APPROVED" ? "Registration Confirmed" : "Already Registered"}
                         </button>
+                        {/* Only show calendar export for upcoming events */}
                         {new Date(event.startDate) >= new Date() && (
                             <button className="btn" onClick={() => setShowCalendarExport(true)} style={{ flex: "1 1 auto", backgroundColor: "#28a745" }}>
                                 Add to Calendar
@@ -682,10 +778,30 @@ export default function EventDetails() {
                 </button>
             </div>
 
+            {/* Calendar export modal for registered participants */}
             {showCalendarExport && registrationId && event && (
                 <CalendarExport registrationId={registrationId} eventName={event.name} onClose={() => setShowCalendarExport(false)} />
             )}
 
+            {/* Payment proof upload modal for paid normal events */}
+            {showPaymentUploadModal && registrationId && event && (
+                <PaymentProofUpload
+                    registration={{
+                        _id: registrationId,
+                        event: { name: event.name, registrationFee: event.registrationFee, type: event.type },
+                        paymentStatus,
+                        paymentRejectionReason: undefined,
+                    }}
+                    onClose={() => setShowPaymentUploadModal(false)}
+                    onSuccess={() => {
+                        setPaymentStatus("PENDING");
+                        setShowPaymentUploadModal(false);
+                        setMessage("Payment proof uploaded! Awaiting organizer approval.");
+                    }}
+                />
+            )}
+
+            {/* Discussion forum — visible to registered participants and organizers */}
             {(role === "PARTICIPANT" && isRegistered) || role === "ORGANIZER" ? (
                 <>
                     {event.type === "MERCH" && role === "PARTICIPANT" && paymentStatus && paymentStatus !== "APPROVED" && (
