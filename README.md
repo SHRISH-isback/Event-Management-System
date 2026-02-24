@@ -38,19 +38,98 @@
 ### Tier C (Selected)
 - **Add to Calendar Integration**: Participants can export registered events to external calendar applications (.ics download, Google Calendar, Outlook integration), with reminders and timezone support. Batch export supported. Justification: Improves event participation and user convenience.
 
-#### Design Choices & Implementation Approach
-- **Workflow separation**: Each advanced feature is modular, with clear separation of concerns (e.g., payment approval, attendance, forum, calendar export).
-- **Socket.IO**: Used for all real-time features (forum, notifications).
-- **Role-based access**: Ensures only authorized users can perform sensitive actions (e.g., approve payments, reset passwords).
-- **Auditability**: All critical actions (attendance, payment, password reset) are logged for traceability.
-- **User experience**: Features like fuzzy search, calendar export, and real-time updates are prioritized for usability.
+## Advanced Features: Detailed Overview
 
-#### Technical Decisions
-- **React** for rapid UI development and maintainability.
-- **Express/Mongoose** for robust, scalable backend.
-- **Socket.IO** for real-time features.
-- **Cloudinary** for reliable media storage.
-- **Levenshtein-based fuzzy search** for efficient, client-side typo tolerance.
+### Tier A (Selected)
+
+#### 1. Merchandise Payment Approval Workflow
+**Justification:**
+- Prevents fraudulent orders and ensures only paid merchandise is fulfilled.
+- Gives organizers full control over merchandise distribution and stock.
+- Provides participants with a clear, auditable payment process.
+
+**Design & Implementation:**
+- After placing a merchandise order, participants must upload payment proof (image).
+- Orders enter a "Pending Approval" state; organizers see all pending orders in a dedicated dashboard tab.
+- Organizers can view payment proofs, approve or reject payments, and add comments.
+- On approval: order is marked successful, stock decremented, QR ticket generated, and confirmation email sent.
+- No QR is generated for pending/rejected orders, ensuring only valid payments are processed.
+- All actions are logged for auditability.
+
+**Technical Decisions:**
+- Used Cloudinary for secure image storage.
+- Multer for file uploads, Socket.IO for real-time status updates.
+- Role-based access ensures only organizers can approve/reject payments.
+
+#### 2. QR Scanner & Attendance Tracking
+**Justification:**
+- Streamlines event check-in, reduces manual errors, and prevents ticket fraud.
+- Enables real-time attendance monitoring and reporting.
+
+**Design & Implementation:**
+- Organizers use a built-in QR scanner (webcam or file upload) to validate tickets.
+- Each scan marks attendance with a timestamp; duplicate scans are rejected.
+- Live dashboard shows scanned vs. not-yet-scanned participants.
+- Attendance data can be exported as CSV for reporting.
+- Manual override option allows organizers to mark attendance in exceptional cases, with audit logging for transparency.
+
+**Technical Decisions:**
+- Used jsqr and react-webcam for in-browser QR scanning.
+- Attendance logic and audit logs handled in backend (Express/Mongoose).
+- Real-time updates via Socket.IO for live dashboards.
+
+### Tier B (Selected)
+
+#### 1. Real-Time Discussion Forum
+**Justification:**
+- Fosters participant engagement and instant support during events.
+- Enables organizers to make announcements and moderate discussions.
+
+**Design & Implementation:**
+- Socket.IO-based forum on each Event Details page.
+- Registered participants and organizers can post messages, reply (threaded), and react with emojis.
+- Organizers can pin/delete messages and post announcements.
+- Real-time notifications for new messages; UI updates instantly for all users.
+- All forum actions are permission-checked and auditable.
+
+**Technical Decisions:**
+- Socket.IO for real-time messaging.
+- Threading and reactions managed in MongoDB with efficient queries.
+- Modular React component for easy reuse and extension.
+
+#### 2. Organizer Password Reset Workflow
+**Justification:**
+- Ensures secure, auditable password resets for organizers.
+- Prevents unauthorized access and tracks all reset requests.
+
+**Design & Implementation:**
+- Organizers request password reset from Admin via a dedicated UI.
+- Admin dashboard lists all requests with club name, date, and reason.
+- Admin can approve/reject with comments; on approval, a new password is generated and sent securely.
+- Request status and history are tracked for transparency.
+
+**Technical Decisions:**
+- Nodemailer for secure email delivery.
+- All requests and actions logged in MongoDB.
+- Role-based access for sensitive actions.
+
+### Tier C (Selected)
+
+#### Add to Calendar Integration
+**Justification:**
+- Increases event participation by making it easy for users to add events to their personal calendars.
+- Supports universal calendar formats and direct integration with Google/Outlook.
+
+**Design & Implementation:**
+- Participants can export individual or multiple events as .ics files (universal import).
+- Direct integration links for Google Calendar and Microsoft Outlook.
+- Users can set reminders and all times are timezone-aware.
+- Batch export supported for convenience.
+
+**Technical Decisions:**
+- Custom ICS file generation in backend.
+- Google/Outlook links generated server-side for accuracy.
+- React components for seamless UI/UX.
 
 ## Setup & Installation
 
